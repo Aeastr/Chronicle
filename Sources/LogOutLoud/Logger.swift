@@ -23,6 +23,9 @@ import Foundation
 ///                   metadata: ["id": userID])
 /// ```
 public final class Logger {
+
+    public typealias Message = () -> String
+
     /// The singleton instance for global access.
     public static let shared = Logger()
     
@@ -69,7 +72,7 @@ public final class Logger {
     ///               (default: `#function`).
     ///   - line: The line number (default: `#line`).
     public func log(
-        _ message: @autoclosure () -> String,
+        _ message: @autoclosure Message,
         level: LogLevel,
         tags: [Tag] = [],
         metadata: [String: CustomStringConvertible] = [:],
@@ -96,6 +99,32 @@ public final class Logger {
             os_log("%{public}@", log: osLog,
                    type: level.osLogType,
                    logMessage)
+        }
+    }
+
+    /// Logs multiple messages if their level is allowed.
+    ///
+    /// - Parameters:
+    ///   - messages: One or more ``Message`` instances to be logged.
+    ///   - level: The severity level.
+    ///   - tags: An array of `Tag` values for categorization.
+    ///   - metadata: A dictionary of extra context.
+    ///   - file: The file where the log is called
+    ///           (default: `#file`).
+    ///   - function: The function name
+    ///               (default: `#function`).
+    ///   - line: The line number (default: `#line`).
+    public func log(
+        _ messages: Message...,
+        level: LogLevel,
+        tags: [Tag] = [],
+        metadata: [String: CustomStringConvertible] = [:],
+        file: String = #file,
+        function: String = #function,
+        line: Int = #line
+    ) {
+        messages.forEach { 
+            log($0, level: level, tags: tags, metadata: metadata, file: file, function: function, line: line)     
         }
     }
 }
