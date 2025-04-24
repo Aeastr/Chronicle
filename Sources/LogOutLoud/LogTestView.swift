@@ -7,12 +7,22 @@
 
 import SwiftUI
 
+    import AVFoundation
+
 extension Tag {
     static let ui = Tag("UI")
     static let data = Tag("Data")
     static let lifecycle = Tag("Lifecycle")
 }
 
+// MARK: - Bounce Button Style
+struct BounceButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: configuration.isPressed)
+    }
+}
 
 @available(iOS 15.0, *)
 public struct LogOutLoud_ExampleView: View {
@@ -133,6 +143,7 @@ public struct LogOutLoud_ExampleView: View {
                 )
                 counter += 1
             }
+            .buttonStyle(BounceButtonStyle())
             
             logButton(
                 title: "Info Log",
@@ -146,6 +157,7 @@ public struct LogOutLoud_ExampleView: View {
                     tags: [.data, .lifecycle]
                 )
             }
+            .buttonStyle(BounceButtonStyle())
             
             logButton(
                 title: "Warning Log",
@@ -160,6 +172,21 @@ public struct LogOutLoud_ExampleView: View {
                     metadata: ["counter": counter, "user": "testUser"]
                 )
             }
+            .buttonStyle(BounceButtonStyle())
+            
+            logButton(
+                title: "Error Log",
+                subtitle: "UI Tag",
+                icon: "xmark.circle",
+                color: .orange
+            ) {
+                Logger.shared.log(
+                    "Error: Why would you do this.",
+                    level: .error,
+                    tags: [.ui]
+                )
+            }
+            .buttonStyle(BounceButtonStyle())
         }
         .padding()
         .background(
@@ -176,29 +203,17 @@ public struct LogOutLoud_ExampleView: View {
                 .padding(.bottom, 4)
             
             logButton(
-                title: "Error Log",
-                subtitle: "UI Tag",
-                icon: "xmark.circle",
-                color: .orange
-            ) {
-                Logger.shared.log(
-                    "Simulated error condition!",
-                    level: .error,
-                    tags: [.ui]
-                )
-            }
-            
-            logButton(
                 title: "Fault Log",
                 subtitle: "Critical Issue",
                 icon: "flame",
                 color: .red
             ) {
                 Logger.shared.log(
-                    "Something went very wrong!",
+                    "Critical: Error something went very wrong!",
                     level: .fault
                 )
             }
+            .buttonStyle(BounceButtonStyle())
             
             logButton(
                 title: "Multiple Messages",
@@ -216,6 +231,7 @@ public struct LogOutLoud_ExampleView: View {
                 )
                 counter += 1
             }
+            .buttonStyle(BounceButtonStyle())
         }
         .padding()
         .background(
@@ -305,11 +321,25 @@ public struct LogOutLoud_ExampleView: View {
             .padding(.horizontal, 8)
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(color.opacity(0.1))
         )
+        .onAppear{
+
+            // --- Place this where your app initializes ---
+            let availableVoices = AVSpeechSynthesisVoice.speechVoices()
+            print("--- Available iOS/tvOS Voices ---")
+            for voice in availableVoices {
+                // The 'identifier' is what you need for Logger.shared.speechVoiceIdentifier
+                print("Identifier: \(voice.identifier)")
+                print("   Name: \(voice.name)")
+                print("   Language: \(voice.language)")
+                print("   Quality: \(voice.quality == .enhanced ? "Enhanced" : "Default")")
+                print("---------------------------------")
+            }
+            // --- End of snippet ---
+        }
     }
     
     private func configureLogger() {
@@ -318,7 +348,8 @@ public struct LogOutLoud_ExampleView: View {
         Logger.shared.log("LogTestView appeared", level: .info, tags: [.lifecycle])
         Logger.shared.speakLogsEnabled = true
         Logger.shared.speechRate = 0.7
-        Logger.shared.speechPitch = 1.3
+//        Logger.shared.speechPitch = 1.3
+        Logger.shared.speechVoiceIdentifier = "com.apple.speech.synthesis.voice.Ralph"
     }
 }
 
