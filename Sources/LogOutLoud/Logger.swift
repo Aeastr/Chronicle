@@ -23,9 +23,9 @@ import Foundation
 ///                   metadata: ["id": userID])
 /// ```
 public final class Logger {
-
+    
     public typealias Message = () -> String
-
+    
     /// The singleton instance for global access.
     public static let shared = Logger()
     
@@ -101,7 +101,7 @@ public final class Logger {
                    logMessage)
         }
     }
-
+    
     /// Logs multiple messages if their level is allowed.
     ///
     /// - Parameters:
@@ -123,8 +123,23 @@ public final class Logger {
         function: String = #function,
         line: Int = #line
     ) {
-        messages.forEach { 
-            log($0, level: level, tags: tags, metadata: metadata, file: file, function: function, line: line)     
+        guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
+            return
+        }
+        let tagString = tags.map { "[\($0.rawValue)]" }.joined()
+        let metaString = metadata.map { "[\($0.key)=\($0.value)]" }.joined()
+        // ------------------------------------
+        
+        for messageClosure in messages {
+            let logMessage = "\(tagString)\(metaString) \(messageClosure())"
+            
+            // Log using os_log
+            os_log(
+                "%{public}@",
+                log: osLog,
+                type: level.osLogType,
+                logMessage
+            )
         }
     }
 }
