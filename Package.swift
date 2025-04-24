@@ -3,22 +3,24 @@
 import PackageDescription
 
 let package = Package(
-  name: "LogOutLoud",
-  platforms: [
-    .iOS(.v13),
-    .macOS(.v10_15)
-  ],
-  products: [
-    .library(
-      name: "LogOutLoud",
-      targets: ["LogOutLoud"]
-    )
-  ],
-  dependencies: [],
-  targets: [
-    .target(
-      name: "LogOutLoud",
-      dependencies: []
-    )
-  ]
+    name: "LogOutLoud",
+    platforms: [
+        .iOS(.v13),
+        .macOS(.v10_15),
+        .tvOS(.v13),
+        .watchOS(.v6)
+    ],
+    products: [
+        .library(
+            name: "LogOutLoud",
+            targets: ["LogOutLoud"]
+        )
+    ],
+    dependencies: [],
+    targets: [
+        .target(
+            name: "LogOutLoud",
+            dependencies: []
+        )
+    ]
 )

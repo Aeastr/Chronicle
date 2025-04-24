@@ -24,14 +24,14 @@ import Foundation
 public struct Tag: RawRepresentable, Hashable, CustomStringConvertible {
     /// The underlying raw string value of the tag.
     public let rawValue: String
-
+    
     /// Creates a new `Tag` from a raw string.
     ///
     /// - Parameter rawValue: The string to use as the tag.
     public init(rawValue: String) {
         self.rawValue = rawValue
     }
-
+    
     /// Convenience initializer to create a `Tag` without
     /// using the `rawValue:` label.
     ///
@@ -39,7 +39,7 @@ public struct Tag: RawRepresentable, Hashable, CustomStringConvertible {
     public init(_ rawValue: String) {
         self.init(rawValue: rawValue)
     }
-
+    
     /// A textual representation of the tag.
     public var description: String {
         rawValue

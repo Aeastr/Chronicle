@@ -29,7 +29,7 @@ public enum LogLevel: Int, CaseIterable, Comparable {
     case error
     /// Severe failure conditions.
     case fault
-
+    
     /// Maps our `LogLevel` to an `OSLogType`.
     public var osLogType: OSLogType {
         switch self {
@@ -45,7 +45,7 @@ public enum LogLevel: Int, CaseIterable, Comparable {
             return .fault
         }
     }
-
+    
     /// Conformance for sorting and filtering.
     public static func < (lhs: LogLevel,
                           rhs: LogLevel) -> Bool {

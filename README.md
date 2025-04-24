@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="300" height="300" src="/assets/icon.png" alt="Portal Logo">
+  <img width="300" height="300" src="/assets/icon.png" alt="LogOutLoud Logo">
   <h1><b>LogOutLoud</b></h1>
   <p>
     A lightweight Swift logging package that wraps Apple’s Unified Logging

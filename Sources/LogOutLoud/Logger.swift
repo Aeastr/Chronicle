@@ -25,26 +25,26 @@ import Foundation
 public final class Logger {
     /// The singleton instance for global access.
     public static let shared = Logger()
-
+    
     /// The subsystem used by `OSLog` (defaults to your
     /// bundle identifier or "LogKit").
     public var subsystem: String =
-        Bundle.main.bundleIdentifier ?? "LogKit"
-
+    Bundle.main.bundleIdentifier ?? "LogKit"
+    
     private var allowedLevels: Set<LogLevel> =
-        Set(LogLevel.allCases)
+    Set(LogLevel.allCases)
     private let osLog: OSLog
     private let queue = DispatchQueue(
         label: "com.logkit.logger.allowedLevels",
         attributes: .concurrent
     )
-
+    
     /// Creates the shared logger with a default `OSLog`.
     private init() {
         osLog = OSLog(subsystem: subsystem,
                       category: "default")
     }
-
+    
     /// Updates which log levels are emitted.
     ///
     /// - Parameter levels:
@@ -55,7 +55,7 @@ public final class Logger {
             self.allowedLevels = levels
         }
     }
-
+    
     /// Logs a message if its level is allowed.
     ///
     /// - Parameters:
@@ -83,7 +83,7 @@ public final class Logger {
             else {
                 return
             }
-
+            
             let tagString = tags
                 .map { "[\($0.rawValue)]" }
                 .joined()
@@ -91,8 +91,8 @@ public final class Logger {
                 .map { "[\($0.key)=\($0.value)]" }
                 .joined()
             let logMessage = "\(tagString)\(metaString) "
-                + "\(message())"
-
+            + "\(message())"
+            
             os_log("%{public}@", log: osLog,
                    type: level.osLogType,
                    logMessage)
