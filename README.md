@@ -61,6 +61,9 @@ dependencies: [
 ```
 
 ---
+Absolutely! Here’s your **API Overview** section with proper Swift indentation and formatting:
+
+---
 
 ## API Overview
 
@@ -68,9 +71,9 @@ dependencies: [
 
 ```swift
 public struct Tag: RawRepresentable, Hashable, CustomStringConvertible {
-public let rawValue: String
-public init(rawValue: String)
-public init(_ rawValue: String)
+    public let rawValue: String
+    public init(rawValue: String)
+    public init(_ rawValue: String)
 }
 ```
 
@@ -78,8 +81,8 @@ public init(_ rawValue: String)
 
 ```swift
 public enum LogLevel: Int, CaseIterable, Comparable {
-case debug, info, notice, warning, error, fault
-public var osLogType: OSLogType
+    case debug, info, notice, warning, error, fault
+    public var osLogType: OSLogType
 }
 ```
 
@@ -87,16 +90,16 @@ public var osLogType: OSLogType
 
 ```swift
 public final class Logger {
-public static let shared: Logger
-public var subsystem: String
-public func setAllowedLevels(_ levels: Set<LogLevel>)
-public func log(
-_ message: @autoclosure () -> String,
-level: LogLevel,
-tags: [Tag],
-metadata: [String: CustomStringConvertible],
-file: String, function: String, line: Int
-)
+    public static let shared: Logger
+    public var subsystem: String
+    public func setAllowedLevels(_ levels: Set<LogLevel>)
+    public func log(
+        _ message: @autoclosure () -> String,
+        level: LogLevel,
+        tags: [Tag],
+        metadata: [String: CustomStringConvertible],
+        file: String, function: String, line: Int
+    )
 }
 ```
 
