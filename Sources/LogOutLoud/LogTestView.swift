@@ -42,14 +42,11 @@ public struct LogOutLoud_ExampleView: View {
         }
         .background(
             LinearGradient(
-                gradient: Gradient(colors: [
-                    colorScheme == .dark ? Color.black : Color(uiColor: .systemGray6),
-                    colorScheme == .dark ? Color(uiColor: .systemGray6) : Color(uiColor: .systemBackground)
-                ]),
+                gradient: backgroundGradient,
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .ignoresSafeArea()
+            .modifier(ConditionalIgnoresSafeAreaModifier())
         )
         .onAppear {
             configureLogger()
@@ -58,12 +55,38 @@ public struct LogOutLoud_ExampleView: View {
     
     // MARK: - UI Components
     
+    // Helper computed property for background gradient colors
+    private var backgroundGradient: Gradient {
+        #if os(macOS)
+        let topColor = colorScheme == .dark ? Color.black : Color(NSColor.controlBackgroundColor) // NSColor available 10.10+
+        let bottomColor = colorScheme == .dark ? Color(NSColor.controlBackgroundColor) : Color(NSColor.windowBackgroundColor) // NSColor available 10.0+
+        #else
+        let topColor = colorScheme == .dark ? Color.black : Color(uiColor: .systemGray6)
+        let bottomColor = colorScheme == .dark ? Color(uiColor: .systemGray6) : Color(uiColor: .systemBackground)
+        #endif
+        return Gradient(colors: [topColor, bottomColor])
+    }
+    
     private var headerSection: some View {
         VStack(spacing: 8) {
+            // Wrap Image in availability check for macOS
+            #if os(macOS)
+            if #available(macOS 11.0, *) {
+                Image(systemName: "text.bubble.fill")
+                    .font(.system(size: 40))
+                    .foregroundColor(.blue)
+                    .padding(.bottom, 4)
+            } else {
+                Text("(icon)") // Placeholder for macOS 10.15
+                    .foregroundColor(.blue)
+                    .padding(.bottom, 4)
+            }
+            #else // iOS, tvOS, watchOS
             Image(systemName: "text.bubble.fill")
                 .font(.system(size: 40))
-                .foregroundStyle(.blue)
+                .foregroundColor(.blue)
                 .padding(.bottom, 4)
+            #endif
             
             Text("LogOutLoud Test View")
                 .font(.title)
@@ -71,21 +94,21 @@ public struct LogOutLoud_ExampleView: View {
             
             Text("Tap buttons to generate logs. View output in Xcode console or Console.app.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .modifier(SecondaryForegroundStyleModifier())
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
                 .padding(.bottom, 4)
             
             Text("Subsystem: \(Logger.shared.subsystem)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.caption)
+                .modifier(SecondaryForegroundStyleModifier())
                 .padding(.top, -4)
         }
         .padding()
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(sectionBackgroundColor)
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
         )
         .padding(.horizontal)
@@ -141,7 +164,7 @@ public struct LogOutLoud_ExampleView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(sectionBackgroundColor)
                 .shadow(color: Color.black.opacity(0.06), radius: 7, x: 0, y: 2)
         )
     }
@@ -197,7 +220,7 @@ public struct LogOutLoud_ExampleView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(sectionBackgroundColor)
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
         )
     }
@@ -206,13 +229,24 @@ public struct LogOutLoud_ExampleView: View {
         VStack {
             Text("Log Count: \(counter)")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .modifier(SecondaryForegroundStyleModifier())
             
             Text("Tap multiple times to see counter increment in logs")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.caption)
+                .modifier(SecondaryForegroundStyleModifier())
         }
         .padding()
+    }
+    
+    // Helper computed property for section background colors
+    private var sectionBackgroundColor: Color {
+        #if os(macOS)
+        // Use available NSColors for macOS 10.15
+        return colorScheme == .dark ? Color(NSColor.darkGray) : Color(NSColor.windowBackgroundColor)
+        #else
+        // Use UIColors for other platforms
+        return colorScheme == .dark ? Color(uiColor: .systemGray5) : Color(uiColor: .systemBackground)
+        #endif
     }
     
     // MARK: - Helper Methods
@@ -220,10 +254,24 @@ public struct LogOutLoud_ExampleView: View {
     private func logButton(title: String, subtitle: String, icon: String, color: Color, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
+                // Wrap Image in availability check for macOS
+                #if os(macOS)
+                if #available(macOS 11.0, *) {
+                    Image(systemName: icon)
+                        .font(.system(size: 22))
+                        .foregroundColor(color)
+                        .frame(width: 28, height: 28)
+                } else {
+                    Text("(i)") // Placeholder for macOS 10.15
+                        .foregroundColor(color)
+                        .frame(width: 28, height: 28)
+                }
+                #else // iOS, tvOS, watchOS
                 Image(systemName: icon)
                     .font(.system(size: 22))
-                    .foregroundStyle(color)
+                    .foregroundColor(color)
                     .frame(width: 28, height: 28)
+                #endif
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
@@ -231,14 +279,27 @@ public struct LogOutLoud_ExampleView: View {
                     
                     Text(subtitle)
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .modifier(SecondaryForegroundStyleModifier())
                 }
                 
                 Spacer()
                 
+                // Wrap Image in availability check for macOS
+                #if os(macOS)
+                if #available(macOS 11.0, *) {
+                     Image(systemName: "arrow.right.circle.fill")
+                         .font(.system(size: 18))
+                         .modifier(ArrowIconForegroundStyleModifier())
+                } else {
+                    Text(">") // Placeholder for macOS 10.15
+                        .font(.system(size: 18))
+                        .modifier(ArrowIconForegroundStyleModifier())
+                }
+                #else // iOS, tvOS, watchOS
                 Image(systemName: "arrow.right.circle.fill")
-                    .foregroundStyle(Color(uiColor: .systemGray3))
                     .font(.system(size: 18))
+                    .modifier(ArrowIconForegroundStyleModifier())
+                #endif
             }
             .padding(.vertical, 10)
             .padding(.horizontal, 8)
@@ -255,5 +316,96 @@ public struct LogOutLoud_ExampleView: View {
         Logger.shared.subsystem = Bundle.main.bundleIdentifier ?? "com.example.logoutloud.test"
         Logger.shared.setAllowedLevels(Set(LogLevel.allCases))
         Logger.shared.log("LogTestView appeared", level: .info, tags: [.lifecycle])
+        Logger.shared.speakLogsEnabled = true
+        Logger.shared.speechRate = 0.7
+        Logger.shared.speechPitch = 1.3
+    }
+}
+
+// MARK: - Compatibility Modifiers
+
+// Helper Modifier to conditionally apply ignoresSafeArea
+struct ConditionalIgnoresSafeAreaModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        if #available(macOS 11.0, *) {
+            content.ignoresSafeArea()
+        } else {
+            content // No equivalent for macOS 10.15
+        }
+        #elseif os(iOS)
+        if #available(iOS 14.0, *) {
+            content.ignoresSafeArea()
+        } else {
+            content // Not available before iOS 14
+        }
+        #elseif os(tvOS)
+        if #available(tvOS 14.0, *) {
+            content.ignoresSafeArea()
+        } else {
+            content // Not available before tvOS 14
+        }
+        #elseif os(watchOS)
+        if #available(watchOS 7.0, *) {
+            content.ignoresSafeArea()
+        } else {
+            content // Not available before watchOS 7
+        }
+        #else
+        content
+        #endif
+    }
+}
+
+// Helper Modifier for Secondary Foreground Color Compatibility
+struct SecondaryForegroundStyleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(watchOS) // watchOS has different availability
+            if #available(watchOS 8.0, *) {
+                content.foregroundColor(.secondary)
+            } else {
+                content // No direct equivalent on watchOS 6/7?
+            }
+        #elseif os(macOS)
+            if #available(macOS 11.0, *) {
+                content.foregroundColor(.secondary)
+            } else {
+                // Fallback for macOS 10.15
+                content.foregroundColor(Color(NSColor.secondaryLabelColor))
+            }
+        #else // iOS, tvOS
+            if #available(iOS 15.0, tvOS 15.0, *) {
+                 content.foregroundStyle(.secondary) // Use newer API where available
+            } else {
+                 content.foregroundColor(.secondary) // Fallback for iOS 13/14
+            }
+        #endif
+    }
+}
+
+// Helper Modifier for Arrow Icon Foreground Color Compatibility
+struct ArrowIconForegroundStyleModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        if #available(macOS 12.0, *) {
+            // Use tertiaryLabelColor directly where available
+            content.foregroundColor(Color(nsColor: .tertiaryLabelColor))
+        } else {
+            // Fallback for macOS 10.15/11
+            content.foregroundColor(Color(NSColor.darkGray))
+        }
+        #else // iOS, tvOS, watchOS
+        if #available(iOS 15.0, *) {
+            // Use systemGray3 for other platforms
+            content.foregroundColor(Color(uiColor: .systemGray3))
+        }
+        #endif
+    }
+}
+
+@available(iOS 15.0, *)
+struct LogOutLoud_ExampleView_Previews: PreviewProvider {
+    static var previews: some View {
+        LogOutLoud_ExampleView()
     }
 }

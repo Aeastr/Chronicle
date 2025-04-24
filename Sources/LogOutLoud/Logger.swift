@@ -7,6 +7,9 @@
 
 import os
 import Foundation
+#if canImport(AVFoundation)
+import AVFoundation // Needed for iOS/tvOS speech
+#endif
 
 /// A global, shared logger powered by `os_log`.
 ///
@@ -34,6 +37,24 @@ public final class Logger {
     public var subsystem: String =
     Bundle.main.bundleIdentifier ?? "LogKit"
     
+    /// Enables/disables speaking logs aloud using the 'say' command.
+    public var speakLogsEnabled: Bool = false
+    
+    /// Optional voice identifier for text-to-speech.
+    /// macOS: Use name from `say -v '?'` (e.g., "Alex").
+    /// iOS/tvOS: Use identifier from `AVSpeechSynthesisVoice.speechVoices()` (e.g., "com.apple.speech.synthesis.voice.Alex").
+    public var speechVoiceIdentifier: String?
+    
+    /// Optional speech rate. Default is platform-specific (usually 0.5 for iOS/tvOS).
+    /// iOS/tvOS range: AVSpeechUtteranceMinimumSpeechRate (0.0) to AVSpeechUtteranceMaximumSpeechRate (1.0).
+    /// macOS range: Converted to WPM for `say -r` (approx 50-350).
+    public var speechRate: Float?
+    
+    /// Optional speech pitch multiplier. Default is 1.0.
+    /// iOS/tvOS range: 0.5 to 2.0.
+    /// macOS: Ignored by `say` command.
+    public var speechPitch: Float?
+    
     private var allowedLevels: Set<LogLevel> =
     Set(LogLevel.allCases)
     private let osLog: OSLog
@@ -41,6 +62,11 @@ public final class Logger {
         label: "com.logkit.logger.allowedLevels",
         attributes: .concurrent
     )
+    
+    #if os(iOS) || os(tvOS)
+    /// Speech synthesizer instance for iOS/tvOS.
+    private let speechSynthesizer = AVSpeechSynthesizer()
+    #endif
     
     /// Creates the shared logger with a default `OSLog`.
     private init() {
@@ -87,6 +113,57 @@ public final class Logger {
                 return
             }
             
+            let actualMessage = message() // Evaluate the autoclosure once
+
+            // Speak the log if enabled (platform-specific implementation)
+            if speakLogsEnabled {
+                #if os(macOS)
+                // macOS: Use Process to call 'say' command
+                DispatchQueue.global(qos: .background).async {
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+                    // Base arguments
+                    var args = [String]()
+                    // Add voice if specified
+                    if let voiceId = self.speechVoiceIdentifier {
+                        args.append("-v")
+                        args.append(voiceId)
+                    }
+                    // Add rate if specified (converting Float to WPM)
+                    if let rate = self.speechRate {
+                        let wpm = Int( min(350, max(50, 50 + (rate * 275))) ) // Map 0.0-1.0 -> 50-325 WPM, clamp
+                        args.append("-r")
+                        args.append("\(wpm)")
+                    }
+                    // Add message
+                    args.append("\(level.rawValue): \(actualMessage)")
+                    process.arguments = args
+                    do {
+                        try process.run()
+                        process.waitUntilExit()
+                    } catch {
+                        os_log("Failed to execute 'say' command: %{public}@", log: OSLog.default, type: .error, error.localizedDescription)
+                    }
+                }
+                #elseif os(iOS) || os(tvOS)
+                // iOS/tvOS: Use AVSpeechSynthesizer
+                let utterance = AVSpeechUtterance(string: "\(level.rawValue): \(actualMessage)")
+                // Set voice if specified
+                if let voiceId = self.speechVoiceIdentifier {
+                    utterance.voice = AVSpeechSynthesisVoice(identifier: voiceId)
+                }
+                // Set rate if specified
+                if let rate = self.speechRate {
+                    utterance.rate = max(AVSpeechUtteranceMinimumSpeechRate, min(AVSpeechUtteranceMaximumSpeechRate, rate))
+                }
+                // Set pitch if specified
+                if let pitch = self.speechPitch {
+                    utterance.pitchMultiplier = max(0.5, min(2.0, pitch))
+                }
+                self.speechSynthesizer.speak(utterance)
+                #endif
+            }
+
             let tagString = tags
                 .map { "[\($0.rawValue)]" }
                 .joined()
@@ -94,9 +171,9 @@ public final class Logger {
                 .map { "[\($0.key)=\($0.value)]" }
                 .joined()
             let logMessage = "\(tagString)\(metaString) "
-            + "\(message())"
+            + "\(actualMessage)" // Use the evaluated message
             
-            os_log("%{public}@", log: osLog,
+            os_log("%{public}@", log: self.osLog,
                    type: level.osLogType,
                    logMessage)
         }
@@ -123,23 +200,78 @@ public final class Logger {
         function: String = #function,
         line: Int = #line
     ) {
-        guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
-            return
-        }
-        let tagString = tags.map { "[\($0.rawValue)]" }.joined()
-        let metaString = metadata.map { "[\($0.key)=\($0.value)]" }.joined()
-        // ------------------------------------
-        
-        for messageClosure in messages {
-            let logMessage = "\(tagString)\(metaString) \(messageClosure())"
+        // Early exit if level is not allowed (check outside queue for efficiency)
+        queue.sync { // Use queue.sync for reading allowedLevels safely
+            guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
+                return
+            }
             
-            // Log using os_log
-            os_log(
-                "%{public}@",
-                log: osLog,
-                type: level.osLogType,
-                logMessage
-            )
+            let tagString = tags.map { "[\($0.rawValue)]" }.joined()
+            let metaString = metadata.map { "[\($0.key)=\($0.value)]" }.joined()
+            // ------------------------------------
+            
+            for messageClosure in messages {
+                let actualMessage = messageClosure() // Evaluate the closure
+                let logMessage = "\(tagString)\(metaString) \(actualMessage)"
+                
+                // Log using os_log
+                os_log(
+                    "%{public}@",
+                    log: self.osLog,
+                    type: level.osLogType,
+                    logMessage
+                )
+                
+                // Speak the log if enabled (platform-specific implementation)
+                if speakLogsEnabled {
+                    #if os(macOS)
+                    // macOS: Use Process to call 'say' command
+                    // NOTE: Running this synchronously within the loop might cause delays
+                    // if many messages are logged quickly. Consider background execution if needed.
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/say")
+                    // Base arguments
+                    var args = [String]()
+                    // Add voice if specified
+                    if let voiceId = self.speechVoiceIdentifier {
+                        args.append("-v")
+                        args.append(voiceId)
+                    }
+                    // Add rate if specified (converting Float to WPM)
+                    if let rate = self.speechRate {
+                        let wpm = Int( min(350, max(50, 50 + (rate * 275))) ) // Map 0.0-1.0 -> 50-325 WPM, clamp
+                        args.append("-r")
+                        args.append("\(wpm)")
+                    }
+                    // Add message
+                    args.append("\(level.rawValue): \(actualMessage)")
+                    process.arguments = args
+                    do {
+                        try process.run()
+                        process.waitUntilExit() // Waits here for speech to finish
+                    } catch {
+                        os_log("Failed to execute 'say' command: %{public}@", log: OSLog.default, type: .error, error.localizedDescription)
+                    }
+                    #elseif os(iOS) || os(tvOS)
+                    // iOS/tvOS: Use AVSpeechSynthesizer
+                    // AVSpeechSynthesizer handles queuing internally
+                    let utterance = AVSpeechUtterance(string: "\(level.rawValue): \(actualMessage)")
+                    // Set voice if specified
+                    if let voiceId = self.speechVoiceIdentifier {
+                        utterance.voice = AVSpeechSynthesisVoice(identifier: voiceId)
+                    }
+                    // Set rate if specified
+                    if let rate = self.speechRate {
+                        utterance.rate = max(AVSpeechUtteranceMinimumSpeechRate, min(AVSpeechUtteranceMaximumSpeechRate, rate))
+                    }
+                    // Set pitch if specified
+                    if let pitch = self.speechPitch {
+                        utterance.pitchMultiplier = max(0.5, min(2.0, pitch))
+                    }
+                    self.speechSynthesizer.speak(utterance)
+                    #endif
+                }
+            }
         }
     }
 }
