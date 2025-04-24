@@ -1,6 +1,4 @@
-# Contributing to Portal
-
-First off, thank you for your interest in contributing to Portal! 🙏 Your help makes Portal better for everyone.
+# Contributing to LogOutLoud
 
 ## Code of Conduct
 
@@ -9,7 +7,7 @@ Please read and follow the [Code of Conduct](./CODE_OF_CONDUCT.md). I’m commit
 ## How to Report Issues
 
 Before opening a new issue, search existing issues to avoid duplicates. When filing a bug report, please include:
-- Portal version (e.g. `0.1.2`) and your Swift/Xcode versions  
+- LogOutLoud version (e.g. `1.0.0`) and your Swift/Xcode versions  
 - Target platform (iOS 15.0+), device or simulator  
 - A concise description of the problem and steps to reproduce  
 - Minimal code snippet or sample project demonstrating the issue  
@@ -28,18 +26,18 @@ If you have an idea for a new feature or enhancement:
 
 1. Fork the repo and clone locally:
    ```bash
-   git clone https://github.com/aeastr/Portal.git
-   cd Portal
+   git clone https://github.com/aeastr/LogOutLoud.git
+   cd LogOutLoud
    ```
 2. Create a feature branch:
    ```bash
    git checkout -b feat/my-new-feature
    ```
-3. Make y changes. Follow the [Development Setup](#development-setup) and [Coding Guidelines](#coding-guidelines).
+3. Make your changes. 
 
 4. Commit with a clear message:
    ```
-   feat: add `.portalFade` animation option
+   feat: add default tags
    ```
 
 5. Push and open a Pull Request against `main`.
@@ -48,27 +46,20 @@ If you have an idea for a new feature or enhancement:
 
 - Xcode 15 or later  
 - iOS 15.0+ deployment target  
-- Clone & open `Portal.xcodeproj` or use the Swift Package in your own project
+- Clone & open `LogOutLoud.xcodeproj` or use the Swift Package in your own project
 
 ## Coding Guidelines
 
 - Use idiomatic Swift & SwiftUI conventions  
 - Structure code for readability and reuse  
 - Keep public APIs minimal and well-documented  
-- If you introduce new API, add samples under `Sources/Portal/Examples`  
+- If you introduce new API, add samples under `Sources/LogOutLoud/Examples`  
 - Format your code with `swift-format` or Xcode’s built-in formatter  
 - Write unit tests _where applicable_
 
-## Running Tests
-
-Portal also includes example targets rather than formal unit tests. To verify functionality:
-1. Open the `Portal.xcodeproj` in Xcode  
-2. Run each demo (SheetExample, NavigationExample, DifferExample) on a simulator or device  
-3. Ensure transitions behave as expected
-
 ## Documentation
 
-- **Wiki**: [View Wiki](https://github.com/Aeastr/Portal/wiki), update installation, usage, and examples sections as needed  
+- **ReadMe** - update installation, usage, and examples sections as needed  
 - Add or update screenshots/GIFs under `docs/images` with descriptive filenames
 
 ## Pull Request Process
@@ -94,4 +85,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for helping make Portal even more magical! 🚀
+Thank you for helping make LogOutLoud even more magical! 🚀
