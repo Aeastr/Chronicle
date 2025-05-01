@@ -25,28 +25,30 @@ import Foundation
 /// Logger is @unchecked Sendable because all mutable state is protected by a concurrent queue or is immutable.
 public final class Logger: @unchecked Sendable {
     // MARK: - Registry for Named Shared Logger Instances (Concurrency-safe for Swift 6)
-    // The registry is protected by a concurrent queue. All access is synchronized.
-    // This is marked @unchecked Sendable because we guarantee thread safety.
-    private static var registry: [String: Logger] = [:]
-    private static let registryQueue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
+    // The registry is encapsulated in a final class and marked @unchecked Sendable.
+    final class LoggerRegistry: @unchecked Sendable {
+        private var loggers: [String: Logger] = [:]
+        private let queue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
+
+        func logger(for key: String) -> Logger {
+            var logger: Logger?
+            queue.sync { logger = loggers[key] }
+            if let logger = logger {
+                return logger
+            } else {
+                let newLogger = Logger(subsystem: key)
+                queue.async(flags: .barrier) { self.loggers[key] = newLogger }
+                return newLogger
+            }
+        }
+    }
+    private static let registry = LoggerRegistry()
 
     /// Access a shared logger for a given key (synchronous, concurrency-safe)
     /// - Parameter key: A unique string to identify the logger (e.g., subsystem, feature, or package name).
     /// - Returns: The shared logger for the given key.
     public static func shared(for key: String) -> Logger {
-        var logger: Logger?
-        registryQueue.sync {
-            logger = registry[key]
-        }
-        if let logger = logger {
-            return logger
-        } else {
-            let newLogger = Logger(subsystem: key)
-            registryQueue.async(flags: .barrier) {
-                registry[key] = newLogger
-            }
-            return newLogger
-        }
+        registry.logger(for: key)
     }
 
     /// The singleton instance for global access (backward compatible).
@@ -70,8 +72,6 @@ public final class Logger: @unchecked Sendable {
     }
 
     public typealias Message = () -> String
-    // No duplicate static/shared/instance properties or initializers below this point.
-
     
     /// Updates which log levels are emitted.
     ///

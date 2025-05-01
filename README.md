@@ -62,40 +62,20 @@ By default, `Logger.shared` is a singleton used across your app and any packages
 Logger.shared.log("App log", level: .info)
 
 // ---
-// Named and convenience loggers (both sync and async available)
-// ---
-
-// Synchronous usage (works anywhere)
-// - Use this when thread safety is not a concern
-// - Not recommended for concurrent access
+// Named loggers for packages, modules, or features (synchronous, concurrency-safe)
 let packageLogger = Logger.shared(for: "com.example.package")
 packageLogger.setAllowedLevels([.debug, .info])
 packageLogger.log("Log from package", level: .debug)
 
-// Async usage (recommended for thread safety)
-// - Use this when you need thread-safe access
-// - Required for concurrent access
-Task {
-    let asyncLogger = await Logger.shared(for: "com.example.package")
-    await asyncLogger.setAllowedLevels([.debug, .info])
-    asyncLogger.log("Log from package", level: .debug)
-}
-
-// Convenience: Predefined shared loggers
-// - Both sync and async versions available
-let pkgLogger = Logger.package() // sync version
-pkgLogger.log("Package log", level: .info)
-
-let asyncPkgLogger = await Logger.package() // async version
-await asyncPkgLogger.setAllowedLevels([.debug, .info])
-asyncPkgLogger.log("Package log", level: .info)
+let networkLogger = Logger.shared(for: "com.example.network")
+networkLogger.setAllowedLevels([.error, .fault])
+networkLogger.log("Network error", level: .error)
 ```
 
 > **Note:**
-> - `Logger.shared` is always available synchronously and is suitable for most simple use cases.
-> - Named/convenience loggers are available both synchronously and asynchronously.
-> - Use the async versions (`await Logger.shared(for:)`) when you need thread-safe access or when working with concurrent code.
-> - Use the synchronous versions (`Logger.shared(for:)`) when thread safety is not a concern or when you're not working with concurrent code.
+> - All logger APIs are synchronous and concurrency-safe for Swift 6.
+> - `Logger.shared(for:)` uses an internal thread-safe registry and is safe for concurrent access.
+> - No async/await is required for any usage.
 
 **This pattern helps you keep logs organized and makes it easy to control logging granularity for different parts of your app or dependencies.**
 
