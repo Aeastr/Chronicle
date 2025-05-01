@@ -28,7 +28,7 @@ public final class Logger: @unchecked Sendable {
     // The registry is encapsulated in a final class and marked @unchecked Sendable.
     final class LoggerRegistry: @unchecked Sendable {
         private var loggers: [String: Logger] = [:]
-        private let queue = DispatchQueue(label: "com.logOutLoud.registry", attributes: .concurrent)
+        private let queue = DispatchQueue(label: "world.aethers.logOutLoud.registry", attributes: .concurrent)
 
         func logger(for key: String) -> Logger {
             var logger: Logger?
@@ -60,7 +60,7 @@ public final class Logger: @unchecked Sendable {
     private var allowedLevels: Set<LogLevel>
     private let osLog: OSLog
     private let queue = DispatchQueue(
-        label: "com.logkit.logger.allowedLevels",
+        label: "world.aethers.logkit.logger.allowedLevels",
         attributes: .concurrent
     )
 
@@ -116,7 +116,7 @@ public final class Logger: @unchecked Sendable {
                 .map { "[\($0.rawValue)]" }
                 .joined()
             let metaString = metadata
-                .map { "[\($0.key)=\($0.value)]" }
+                .map { "[\($0.key)=\($0.value)]\n" }
                 .joined()
             let logMessage = "\(tagString)\(metaString) "
             + "\(message())"

@@ -252,7 +252,7 @@ public struct LogOutLoud_ExampleView: View {
     }
     
     private func configureLogger() {
-        Logger.shared.subsystem = Bundle.main.bundleIdentifier ?? "com.example.logoutloud.test"
+        Logger.shared.subsystem = Bundle.main.bundleIdentifier ?? "world.aethers.logoutloud.placeholder"
         Logger.shared.setAllowedLevels(Set(LogLevel.allCases))
         Logger.shared.log("LogTestView appeared", level: .info, tags: [.lifecycle])
     }
