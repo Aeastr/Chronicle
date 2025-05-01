@@ -11,7 +11,7 @@
 
 <div align="center">
   <a href="https://swift.org">
-    <img src="https://img.shields.io/badge/Swift-5.6%2B-orange.svg" alt="Swift Version">
+    <img src="https://img.shields.io/badge/Swift-6.0%2B-orange.svg" alt="Swift Version">
   </a>
   <a href="https://developer.apple.com/ios/">
     <img src="https://img.shields.io/badge/iOS-13%2B-blue.svg" alt="iOS 13+">
