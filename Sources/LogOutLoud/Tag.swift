@@ -21,7 +21,7 @@ import Foundation
 /// - Note: Conforms to `RawRepresentable`. You can create
 ///   a tag with `Tag(rawValue:)`, or use the convenience
 ///   initializer `Tag("Name")`.
-public struct Tag: RawRepresentable, Hashable, CustomStringConvertible {
+public struct Tag: RawRepresentable, Hashable, CustomStringConvertible, Sendable {
     /// The underlying raw string value of the tag.
     public let rawValue: String
     

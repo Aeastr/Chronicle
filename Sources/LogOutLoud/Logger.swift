@@ -22,7 +22,8 @@ import Foundation
 ///                   tags: [.network],
 ///                   metadata: ["id": userID])
 /// ```
-public final class Logger {
+/// Logger is @unchecked Sendable because all mutable state is protected by a concurrent queue or is immutable.
+public final class Logger: @unchecked Sendable {
     
     public typealias Message = () -> String
     
