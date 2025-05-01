@@ -57,23 +57,45 @@ By default, `Logger.shared` is a singleton used across your app and any packages
 ### Usage
 
 ```swift
-// Default global logger (backward compatible)
+// ---
+// Default global logger (synchronous, works anywhere)
 Logger.shared.log("App log", level: .info)
 
-// Named logger for a package or module
+// ---
+// Named and convenience loggers (both sync and async available)
+// ---
+
+// Synchronous usage (works anywhere)
+// - Use this when thread safety is not a concern
+// - Not recommended for concurrent access
 let packageLogger = Logger.shared(for: "com.example.package")
 packageLogger.setAllowedLevels([.debug, .info])
 packageLogger.log("Log from package", level: .debug)
 
-// Named logger for network logs
-let networkLogger = Logger.shared(for: "com.example.network")
-networkLogger.setAllowedLevels([.error, .fault])
-networkLogger.log("Network error", level: .error)
+// Async usage (recommended for thread safety)
+// - Use this when you need thread-safe access
+// - Required for concurrent access
+Task {
+    let asyncLogger = await Logger.shared(for: "com.example.package")
+    await asyncLogger.setAllowedLevels([.debug, .info])
+    asyncLogger.log("Log from package", level: .debug)
+}
 
 // Convenience: Predefined shared loggers
-Logger.package.log("Package log", level: .info)
-Logger.network.log("Network log", level: .info)
+// - Both sync and async versions available
+let pkgLogger = Logger.package() // sync version
+pkgLogger.log("Package log", level: .info)
+
+let asyncPkgLogger = await Logger.package() // async version
+await asyncPkgLogger.setAllowedLevels([.debug, .info])
+asyncPkgLogger.log("Package log", level: .info)
 ```
+
+> **Note:**
+> - `Logger.shared` is always available synchronously and is suitable for most simple use cases.
+> - Named/convenience loggers are available both synchronously and asynchronously.
+> - Use the async versions (`await Logger.shared(for:)`) when you need thread-safe access or when working with concurrent code.
+> - Use the synchronous versions (`Logger.shared(for:)`) when thread safety is not a concern or when you're not working with concurrent code.
 
 **This pattern helps you keep logs organized and makes it easy to control logging granularity for different parts of your app or dependencies.**
 

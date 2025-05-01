@@ -24,39 +24,43 @@ import Foundation
 /// ```
 /// Logger is @unchecked Sendable because all mutable state is protected by a concurrent queue or is immutable.
 public final class Logger: @unchecked Sendable {
-    /// Registry for named shared logger instances.
-    private static var registry: [String: Logger] = [:]
-    private static let registryQueue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
-
-    /// Access a shared logger for a given key (e.g., subsystem or custom name).
-    /// - Parameter key: A unique string to identify the logger (e.g., subsystem, feature, or package name).
-    /// - Returns: The shared logger for the given key.
-    public static func shared(for key: String) -> Logger {
-        registryQueue.sync {
-            if let logger = registry[key] {
+    // MARK: - Registry for Named Shared Logger Instances (Concurrency-safe)
+    actor LoggerRegistry {
+        private var loggers: [String: Logger] = [:]
+        func logger(for key: String) -> Logger {
+            if let logger = loggers[key] {
                 return logger
             } else {
                 let logger = Logger(subsystem: key)
-                registryQueue.async(flags: .barrier) {
-                    registry[key] = logger
-                }
+                loggers[key] = logger
                 return logger
             }
         }
     }
+    private static let registry = LoggerRegistry()
+
+    /// Access a shared logger for a given key (async, concurrency-safe)
+    /// - Parameter key: A unique string to identify the logger (e.g., subsystem, feature, or package name).
+    /// - Returns: The shared logger for the given key.
+    public static func shared(for key: String) async -> Logger {
+        await registry.logger(for: key)
+    }
 
     /// Convenience: Shared logger for package/module logs (update key as needed)
-    public static let package = Logger.shared(for: "com.example.package")
+    public static func package() async -> Logger {
+        await shared(for: "com.example.package")
+    }
     /// Convenience: Shared logger for network logs
-    public static let network = Logger.shared(for: "com.example.network")
+    public static func network() async -> Logger {
+        await shared(for: "com.example.network")
+    }
 
     /// The singleton instance for global access (backward compatible).
     public static let shared = Logger()
 
-    /// The subsystem used by `OSLog` (defaults to your
-    /// bundle identifier or "LogKit").
+    // MARK: - Instance Properties
+    /// The subsystem used by `OSLog` (defaults to your bundle identifier or "LogKit").
     public var subsystem: String
-
     private var allowedLevels: Set<LogLevel>
     private let osLog: OSLog
     private let queue = DispatchQueue(
@@ -70,6 +74,7 @@ public final class Logger: @unchecked Sendable {
         self.allowedLevels = Set(LogLevel.allCases)
         self.osLog = OSLog(subsystem: subsystem, category: "default")
     }
+
     
     public typealias Message = () -> String
     
