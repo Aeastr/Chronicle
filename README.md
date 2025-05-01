@@ -34,11 +34,48 @@
 ## Features
 
 - A global, shared `Logger` singleton  
+- Multiple named shared logger instances for packages/modules  
 - Extensible, enum-style `Tag`s  
 - Runtime filtering by `LogLevel`  
 - Optional metadata dictionary for structured context  
 - Zero overhead for disabled logs  
 
+
+---
+
+## Multiple Shared Logger Instances
+
+By default, `Logger.shared` is a singleton used across your app and any packages that import LogOutLoud. 
+
+**However, you can now create and access multiple shared logger instances, each with their own configuration, using a registry pattern:**
+
+### Why?
+- This allows packages, modules, or features to have separate logging controls.
+- For example, you can enable verbose logging for your network layer, but only show errors for a third-party package.
+- Each logger instance can have its own allowed levels, subsystem, and filtering.
+
+### Usage
+
+```swift
+// Default global logger (backward compatible)
+Logger.shared.log("App log", level: .info)
+
+// Named logger for a package or module
+let packageLogger = Logger.shared(for: "com.example.package")
+packageLogger.setAllowedLevels([.debug, .info])
+packageLogger.log("Log from package", level: .debug)
+
+// Named logger for network logs
+let networkLogger = Logger.shared(for: "com.example.network")
+networkLogger.setAllowedLevels([.error, .fault])
+networkLogger.log("Network error", level: .error)
+
+// Convenience: Predefined shared loggers
+Logger.package.log("Package log", level: .info)
+Logger.network.log("Network log", level: .info)
+```
+
+**This pattern helps you keep logs organized and makes it easy to control logging granularity for different parts of your app or dependencies.**
 
 ---
 

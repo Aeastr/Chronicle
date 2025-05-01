@@ -24,6 +24,52 @@ import Foundation
 /// ```
 /// Logger is @unchecked Sendable because all mutable state is protected by a concurrent queue or is immutable.
 public final class Logger: @unchecked Sendable {
+    /// Registry for named shared logger instances.
+    private static var registry: [String: Logger] = [:]
+    private static let registryQueue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
+
+    /// Access a shared logger for a given key (e.g., subsystem or custom name).
+    /// - Parameter key: A unique string to identify the logger (e.g., subsystem, feature, or package name).
+    /// - Returns: The shared logger for the given key.
+    public static func shared(for key: String) -> Logger {
+        registryQueue.sync {
+            if let logger = registry[key] {
+                return logger
+            } else {
+                let logger = Logger(subsystem: key)
+                registryQueue.async(flags: .barrier) {
+                    registry[key] = logger
+                }
+                return logger
+            }
+        }
+    }
+
+    /// Convenience: Shared logger for package/module logs (update key as needed)
+    public static let package = Logger.shared(for: "com.example.package")
+    /// Convenience: Shared logger for network logs
+    public static let network = Logger.shared(for: "com.example.network")
+
+    /// The singleton instance for global access (backward compatible).
+    public static let shared = Logger()
+
+    /// The subsystem used by `OSLog` (defaults to your
+    /// bundle identifier or "LogKit").
+    public var subsystem: String
+
+    private var allowedLevels: Set<LogLevel>
+    private let osLog: OSLog
+    private let queue = DispatchQueue(
+        label: "com.logkit.logger.allowedLevels",
+        attributes: .concurrent
+    )
+
+    /// Creates a logger with a specific subsystem.
+    public init(subsystem: String = Bundle.main.bundleIdentifier ?? "LogKit") {
+        self.subsystem = subsystem
+        self.allowedLevels = Set(LogLevel.allCases)
+        self.osLog = OSLog(subsystem: subsystem, category: "default")
+    }
     
     public typealias Message = () -> String
     
