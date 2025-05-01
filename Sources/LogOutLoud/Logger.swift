@@ -28,7 +28,7 @@ public final class Logger: @unchecked Sendable {
     // The registry is encapsulated in a final class and marked @unchecked Sendable.
     final class LoggerRegistry: @unchecked Sendable {
         private var loggers: [String: Logger] = [:]
-        private let queue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
+        private let queue = DispatchQueue(label: "com.logOutLoud.registry", attributes: .concurrent)
 
         func logger(for key: String) -> Logger {
             var logger: Logger?
