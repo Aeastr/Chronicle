@@ -24,35 +24,29 @@ import Foundation
 /// ```
 /// Logger is @unchecked Sendable because all mutable state is protected by a concurrent queue or is immutable.
 public final class Logger: @unchecked Sendable {
-    // MARK: - Registry for Named Shared Logger Instances (Concurrency-safe)
-    actor LoggerRegistry {
-        private var loggers: [String: Logger] = [:]
-        func logger(for key: String) -> Logger {
-            if let logger = loggers[key] {
-                return logger
-            } else {
-                let logger = Logger(subsystem: key)
-                loggers[key] = logger
-                return logger
-            }
-        }
-    }
-    private static let registry = LoggerRegistry()
+    // MARK: - Registry for Named Shared Logger Instances (Concurrency-safe for Swift 6)
+    // The registry is protected by a concurrent queue. All access is synchronized.
+    // This is marked @unchecked Sendable because we guarantee thread safety.
+    private static var registry: [String: Logger] = [:]
+    private static let registryQueue = DispatchQueue(label: "com.logkit.logger.registry", attributes: .concurrent)
 
-    /// Access a shared logger for a given key (async, concurrency-safe)
+    /// Access a shared logger for a given key (synchronous, concurrency-safe)
     /// - Parameter key: A unique string to identify the logger (e.g., subsystem, feature, or package name).
     /// - Returns: The shared logger for the given key.
-    public static func shared(for key: String) async -> Logger {
-        await registry.logger(for: key)
-    }
-
-    /// Convenience: Shared logger for package/module logs (update key as needed)
-    public static func package() async -> Logger {
-        await shared(for: "com.example.package")
-    }
-    /// Convenience: Shared logger for network logs
-    public static func network() async -> Logger {
-        await shared(for: "com.example.network")
+    public static func shared(for key: String) -> Logger {
+        var logger: Logger?
+        registryQueue.sync {
+            logger = registry[key]
+        }
+        if let logger = logger {
+            return logger
+        } else {
+            let newLogger = Logger(subsystem: key)
+            registryQueue.async(flags: .barrier) {
+                registry[key] = newLogger
+            }
+            return newLogger
+        }
     }
 
     /// The singleton instance for global access (backward compatible).
@@ -75,30 +69,9 @@ public final class Logger: @unchecked Sendable {
         self.osLog = OSLog(subsystem: subsystem, category: "default")
     }
 
-    
     public typealias Message = () -> String
-    
-    /// The singleton instance for global access.
-    public static let shared = Logger()
-    
-    /// The subsystem used by `OSLog` (defaults to your
-    /// bundle identifier or "LogKit").
-    public var subsystem: String =
-    Bundle.main.bundleIdentifier ?? "LogKit"
-    
-    private var allowedLevels: Set<LogLevel> =
-    Set(LogLevel.allCases)
-    private let osLog: OSLog
-    private let queue = DispatchQueue(
-        label: "com.logkit.logger.allowedLevels",
-        attributes: .concurrent
-    )
-    
-    /// Creates the shared logger with a default `OSLog`.
-    private init() {
-        osLog = OSLog(subsystem: subsystem,
-                      category: "default")
-    }
+    // No duplicate static/shared/instance properties or initializers below this point.
+
     
     /// Updates which log levels are emitted.
     ///
