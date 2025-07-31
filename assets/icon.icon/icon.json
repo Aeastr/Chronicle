@@ -1,0 +1,44 @@
+{
+  "fill" : {
+    "automatic-gradient" : "display-p3:0.25488,0.05884,0.10980,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "inp.svg",
+          "name" : "inp",
+          "opacity" : 1
+        },
+        {
+          "blend-mode" : "multiply",
+          "glass" : false,
+          "image-name" : "Scanlines.svg",
+          "name" : "Scanlines",
+          "opacity" : 0.17
+        }
+      ],
+      "position" : {
+        "scale" : 1.5,
+        "translation-in-points" : [
+          0,
+          0
+        ]
+      },
+      "shadow" : {
+        "kind" : "neutral",
+        "opacity" : 0.5
+      },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    }
+  ],
+  "supported-platforms" : {
+    "circles" : [
+      "watchOS"
+    ],
+    "squares" : "shared"
+  }
+}
