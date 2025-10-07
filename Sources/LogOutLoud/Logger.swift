@@ -61,20 +61,41 @@ public final class Logger: @unchecked Sendable {
     /// The subsystem used by `OSLog` (defaults to your bundle identifier or "LogKit").
     public var subsystem: String
     private var allowedLevels: Set<LogLevel>
+    private let category: String
     private let osLog: OSLog
     private let modernLogger: Any?
     private let queue = DispatchQueue(
         label: "world.aethers.logkit.logger.allowedLevels",
         attributes: .concurrent
     )
+    private var eventSinks: [UUID: AnyLogEventSink] = [:]
+
+    private struct ConsoleConfiguration {
+        let store: LogConsoleStore
+        let token: LogEventSinkToken
+    }
+
+    private var consoleConfiguration: ConsoleConfiguration?
+
+    private struct LogDispatch {
+        let payload: String
+        let entry: LogEntry
+        let sinks: [AnyLogEventSink]
+    }
+
+    private struct MetadataPackage {
+        let structured: LogMetadata?
+        let rendered: String?
+    }
 
     /// Creates a logger with a specific subsystem.
     public init(subsystem: String = Bundle.main.bundleIdentifier ?? "LogKit") {
         self.subsystem = subsystem
         self.allowedLevels = Set(LogLevel.allCases)
-        self.osLog = OSLog(subsystem: subsystem, category: "default")
+        self.category = "default"
+        self.osLog = OSLog(subsystem: subsystem, category: category)
         if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
-            self.modernLogger = os.Logger(subsystem: subsystem, category: "default")
+            self.modernLogger = os.Logger(subsystem: subsystem, category: category)
         } else {
             self.modernLogger = nil
         }
@@ -114,30 +135,49 @@ public final class Logger: @unchecked Sendable {
         function: String = #function,
         line: Int = #line
     ) {
-        queue.sync {
-            guard allowedLevels.isEmpty
-                    || allowedLevels.contains(level)
-            else {
-                return
+        guard let dispatch = queue.sync(execute: { () -> LogDispatch? in
+            guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
+                return nil
             }
-            
-            let tagPrefix = formatTags(tags)
-            let metadataPayload = metadataPayload(
+
+            let resolvedMessage = message()
+            let metadataPackage = metadataPackage(
                 metadata: metadata,
                 tags: tags,
                 file: file,
                 function: function,
                 line: line
             )
-            let resolvedMessage = message()
+
             let logLine = composeLogLine(
                 message: resolvedMessage,
-                tagPrefix: tagPrefix,
-                metadataPayload: metadataPayload
+                tagPrefix: formatTags(tags),
+                metadataPayload: metadataPackage.rendered
             )
 
-            send(logLine, level: level)
+            let entry = LogEntry(
+                level: level,
+                message: resolvedMessage,
+                tags: tags,
+                metadata: metadataPackage.structured,
+                renderedMetadata: metadataPackage.rendered,
+                subsystem: subsystem,
+                category: category,
+                source: .init(
+                    file: (file as NSString).lastPathComponent,
+                    function: function,
+                    line: line
+                )
+            )
+
+            let sinks = Array(eventSinks.values)
+            return LogDispatch(payload: logLine, entry: entry, sinks: sinks)
+        }) else {
+            return
         }
+
+        send(dispatch.payload, level: level)
+        forwardToSinks(dispatch)
     }
     
     /// Logs multiple messages if their level is allowed.
@@ -161,28 +201,51 @@ public final class Logger: @unchecked Sendable {
         function: String = #function,
         line: Int = #line
     ) {
-        queue.sync {
+        let dispatches = queue.sync(execute: { () -> [LogDispatch] in
             guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
-                return
+                return []
             }
-            let tagPrefix = formatTags(tags)
-            let metadataPayload = metadataPayload(
+
+            let metadataPackage = metadataPackage(
                 metadata: metadata,
                 tags: tags,
                 file: file,
                 function: function,
                 line: line
             )
+            let tagPrefix = formatTags(tags)
+            let sinks = Array(eventSinks.values)
 
-            for messageClosure in messages {
+            return messages.map { messageClosure in
                 let resolvedMessage = messageClosure()
                 let logLine = composeLogLine(
                     message: resolvedMessage,
                     tagPrefix: tagPrefix,
-                    metadataPayload: metadataPayload
+                    metadataPayload: metadataPackage.rendered
                 )
-                send(logLine, level: level)
+                let entry = LogEntry(
+                    level: level,
+                    message: resolvedMessage,
+                    tags: tags,
+                    metadata: metadataPackage.structured,
+                    renderedMetadata: metadataPackage.rendered,
+                    subsystem: subsystem,
+                    category: category,
+                    source: .init(
+                        file: (file as NSString).lastPathComponent,
+                        function: function,
+                        line: line
+                    )
+                )
+                return LogDispatch(payload: logLine, entry: entry, sinks: sinks)
             }
+        })
+
+        guard !dispatches.isEmpty else { return }
+
+        for dispatch in dispatches {
+            send(dispatch.payload, level: level)
+            forwardToSinks(dispatch)
         }
     }
 
@@ -217,6 +280,61 @@ public final class Logger: @unchecked Sendable {
         }
     }
 
+    @discardableResult
+    public func addEventSink(_ sink: some LogEventSink) -> LogEventSinkToken {
+        let container = AnyLogEventSink(sink)
+        queue.sync(flags: .barrier) {
+            eventSinks[container.token.rawValue] = container
+        }
+        return container.token
+    }
+
+    @discardableResult
+    public func addEventSink(_ handler: @escaping LogEventHandler) -> LogEventSinkToken {
+        let token = LogEventSinkToken()
+        let container = AnyLogEventSink(token: token, handler: handler)
+        queue.sync(flags: .barrier) {
+            eventSinks[token.rawValue] = container
+        }
+        return token
+    }
+
+    public func removeEventSink(_ token: LogEventSinkToken) {
+        queue.sync(flags: .barrier) {
+            eventSinks.removeValue(forKey: token.rawValue)
+        }
+    }
+
+    @MainActor
+    @discardableResult
+    public func enableConsole(maxEntries: Int = LogConsoleStore.defaultMaxEntries) -> LogConsoleStore {
+        if let configuration = queue.sync(execute: { consoleConfiguration }) {
+            configuration.store.updateMaxEntries(maxEntries)
+            return configuration.store
+        }
+
+        let store = LogConsoleStore(maxEntries: maxEntries)
+        let token = addEventSink(store)
+        queue.sync(flags: .barrier) {
+            consoleConfiguration = ConsoleConfiguration(store: store, token: token)
+        }
+        return store
+    }
+
+    @MainActor
+    public func disableConsole() {
+        guard let configuration = queue.sync(execute: { consoleConfiguration }) else { return }
+        removeEventSink(configuration.token)
+        queue.sync(flags: .barrier) {
+            consoleConfiguration = nil
+        }
+    }
+
+    @MainActor
+    public var consoleStore: LogConsoleStore? {
+        queue.sync { consoleConfiguration?.store }
+    }
+
     private func send(_ logMessage: String, level: LogLevel) {
         if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *),
            let modernLogger = modernLogger as? os.Logger {
@@ -228,6 +346,13 @@ public final class Logger: @unchecked Sendable {
                 type: level.osLogType,
                 logMessage
             )
+        }
+    }
+
+    private func forwardToSinks(_ dispatch: LogDispatch) {
+        guard !dispatch.sinks.isEmpty else { return }
+        for sink in dispatch.sinks {
+            sink.receive(dispatch.entry)
         }
     }
 
@@ -245,13 +370,13 @@ public final class Logger: @unchecked Sendable {
         return "\(tagPrefix) "
     }
 
-    private func metadataPayload(
+    private func metadataPackage(
         metadata: [String: CustomStringConvertible],
         tags: [Tag],
         file: String,
         function: String,
         line: Int
-    ) -> String? {
+    ) -> MetadataPackage {
         var structured: LogMetadata = metadata.reduce(into: [:]) { partialResult, element in
             partialResult[element.key] = LogMetadataValue.fromAny(element.value)
         }
@@ -273,8 +398,12 @@ public final class Logger: @unchecked Sendable {
             structured["_subsystem"] = .string(subsystem)
         }
 
-        guard !structured.isEmpty else { return nil }
-        return LogMetadataValue.dictionary(structured).description
+        guard !structured.isEmpty else {
+            return MetadataPackage(structured: nil, rendered: nil)
+        }
+
+        let rendered = LogMetadataValue.dictionary(structured).description
+        return MetadataPackage(structured: structured, rendered: rendered)
     }
 
     private func composeLogLine(
@@ -312,16 +441,17 @@ public final class Logger: @unchecked Sendable {
         message: @autoclosure () -> String = ""
     ) -> OSSignpostID {
         let signpostID = id ?? OSSignpostID(log: osLog)
+        let metadataPackage = metadataPackage(
+            metadata: metadata,
+            tags: tags,
+            file: file,
+            function: function,
+            line: line
+        )
         let payload = composeLogLine(
             message: message(),
             tagPrefix: formatTags(tags),
-            metadataPayload: metadataPayload(
-                metadata: metadata,
-                tags: tags,
-                file: file,
-                function: function,
-                line: line
-            )
+            metadataPayload: metadataPackage.rendered
         )
 
         os_signpost(.begin, log: osLog, name: name, signpostID: signpostID, "%{public}@", payload)
@@ -342,13 +472,13 @@ public final class Logger: @unchecked Sendable {
         let payload = composeLogLine(
             message: message(),
             tagPrefix: formatTags(tags),
-            metadataPayload: metadataPayload(
+            metadataPayload: metadataPackage(
                 metadata: metadata,
                 tags: tags,
                 file: file,
                 function: function,
                 line: line
-            )
+            ).rendered
         )
 
         os_signpost(.end, log: osLog, name: name, signpostID: id, "%{public}@", payload)
@@ -367,16 +497,17 @@ public final class Logger: @unchecked Sendable {
         message: @autoclosure () -> String = ""
     ) -> OSSignpostID {
         let signpostID = id ?? OSSignpostID(log: osLog)
+        let metadataPackage = metadataPackage(
+            metadata: metadata,
+            tags: tags,
+            file: file,
+            function: function,
+            line: line
+        )
         let payload = composeLogLine(
             message: message(),
             tagPrefix: formatTags(tags),
-            metadataPayload: metadataPayload(
-                metadata: metadata,
-                tags: tags,
-                file: file,
-                function: function,
-                line: line
-            )
+            metadataPayload: metadataPackage.rendered
         )
 
         os_signpost(.event, log: osLog, name: name, signpostID: signpostID, "%{public}@", payload)

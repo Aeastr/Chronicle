@@ -17,6 +17,7 @@ extension Tag {
 @available(iOS 15.0, *)
 public struct LogOutLoud_ExampleView: View {
     @State private var counter = 0
+    @State private var showConsole = false
     @Environment(\.colorScheme) private var colorScheme
     
     public init(){}
@@ -51,6 +52,10 @@ public struct LogOutLoud_ExampleView: View {
             )
             .ignoresSafeArea()
         )
+        .sheet(isPresented: $showConsole) {
+            LogConsolePanel()
+        }
+        .logConsole(enabled: true)
         .onAppear {
             configureLogger()
         }
@@ -80,6 +85,15 @@ public struct LogOutLoud_ExampleView: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .padding(.top, -4)
+
+            Button {
+                showConsole = true
+            } label: {
+                Label("Open Live Console", systemImage: "waveform.path")
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue)
+            .padding(.top, 8)
         }
         .padding()
         .frame(maxWidth: .infinity)
@@ -255,5 +269,13 @@ public struct LogOutLoud_ExampleView: View {
         Logger.shared.subsystem = Bundle.main.bundleIdentifier ?? "world.aethers.logoutloud.placeholder"
         Logger.shared.setAllowedLevels(Set(LogLevel.allCases))
         Logger.shared.log("LogTestView appeared", level: .info, tags: [.lifecycle])
+    }
+}
+
+#Preview {
+    if #available(iOS 15.0, *) {
+        LogOutLoud_ExampleView()
+    } else {
+        // Fallback on earlier versions
     }
 }
