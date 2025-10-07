@@ -6,9 +6,9 @@ let package = Package(
     name: "LogOutLoud",
     platforms: [
         .iOS(.v13),
-        .macOS(.v10_15),
+        .macOS(.v11),
         .tvOS(.v13),
-        .watchOS(.v6)
+        .watchOS(.v7)
     ],
     products: [
         .library(

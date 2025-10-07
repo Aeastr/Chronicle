@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+#if os(iOS)
+
 extension Tag {
     static let ui = Tag("UI")
     static let data = Tag("Data")
@@ -44,8 +46,8 @@ public struct LogOutLoud_ExampleView: View {
         .background(
             LinearGradient(
                 gradient: Gradient(colors: [
-                    colorScheme == .dark ? Color.black : Color(uiColor: .systemGray6),
-                    colorScheme == .dark ? Color(uiColor: .systemGray6) : Color(uiColor: .systemBackground)
+                    colorScheme == .dark ? Color.black : Color(red: 0.94, green: 0.95, blue: 0.97),
+                    colorScheme == .dark ? Color(red: 0.18, green: 0.18, blue: 0.2) : Color.white
                 ]),
                 startPoint: .top,
                 endPoint: .bottom
@@ -99,7 +101,7 @@ public struct LogOutLoud_ExampleView: View {
         .frame(maxWidth: .infinity)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(colorScheme == .dark ? Color(red: 0.18, green: 0.18, blue: 0.2) : Color.white)
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
         )
         .padding(.horizontal)
@@ -155,7 +157,7 @@ public struct LogOutLoud_ExampleView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(colorScheme == .dark ? Color(red: 0.18, green: 0.18, blue: 0.2) : Color.white)
                 .shadow(color: Color.black.opacity(0.06), radius: 7, x: 0, y: 2)
         )
     }
@@ -211,7 +213,7 @@ public struct LogOutLoud_ExampleView: View {
         .padding()
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color(uiColor: colorScheme == .dark ? .systemGray5 : .systemBackground))
+                .fill(colorScheme == .dark ? Color(red: 0.18, green: 0.18, blue: 0.2) : Color.white)
                 .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 2)
         )
     }
@@ -251,7 +253,7 @@ public struct LogOutLoud_ExampleView: View {
                 Spacer()
                 
                 Image(systemName: "arrow.right.circle.fill")
-                    .foregroundStyle(Color(uiColor: .systemGray3))
+                    .foregroundStyle(Color.gray.opacity(0.4))
                     .font(.system(size: 18))
             }
             .padding(.vertical, 10)
@@ -275,7 +277,7 @@ public struct LogOutLoud_ExampleView: View {
 #Preview {
     if #available(iOS 16.0, *) {
         LogOutLoud_ExampleView()
-    } else {
-        // Fallback on earlier versions
     }
 }
+
+#endif
