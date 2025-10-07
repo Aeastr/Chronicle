@@ -198,7 +198,10 @@ public final class Logger: @unchecked Sendable {
         line: Int = #line,
         _ message: @escaping @Sendable () async -> String
     ) -> Task<Void, Never> {
-        Task(priority: priority) { [weak self] in
+        // Convert metadata to Sendable String dictionary
+        let sendableMetadata: [String: String] = metadata.mapValues { $0.description }
+
+        return Task(priority: priority) { [weak self] in
             guard let self else { return }
             guard self.isLevelEnabled(level) else { return }
             let resolvedMessage = await message()
@@ -206,7 +209,7 @@ public final class Logger: @unchecked Sendable {
                 resolvedMessage,
                 level: level,
                 tags: tags,
-                metadata: metadata,
+                metadata: sendableMetadata,
                 file: file,
                 function: function,
                 line: line
@@ -217,7 +220,7 @@ public final class Logger: @unchecked Sendable {
     private func send(_ logMessage: String, level: LogLevel) {
         if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *),
            let modernLogger = modernLogger as? os.Logger {
-            modernLogger.log(level: level.osLoggerLevel, "\(logMessage, privacy: .public)")
+            modernLogger.log(level: level.osLogType, "\(logMessage, privacy: .public)")
         } else {
             os_log(
                 "%{public}@",

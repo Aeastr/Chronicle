@@ -11,7 +11,7 @@ import Logging
 /// A `swift-log` compatible handler that forwards messages into `LogOutLoud`.
 public struct LogOutLoudLogHandler: LogHandler {
     private var backend: Logger
-    public var metadata: Logging.Metadata
+    public var metadata: Logging.Logger.Metadata
     public var logLevel: Logging.Logger.Level {
         didSet { applyAllowedLevels() }
     }
@@ -23,7 +23,7 @@ public struct LogOutLoudLogHandler: LogHandler {
         applyAllowedLevels()
     }
 
-    public subscript(metadataKey key: String) -> Logging.MetadataValue? {
+    public subscript(metadataKey key: String) -> Logging.Logger.MetadataValue? {
         get { metadata[key] }
         set { metadata[key] = newValue }
     }
@@ -31,7 +31,7 @@ public struct LogOutLoudLogHandler: LogHandler {
     public func log(
         level: Logging.Logger.Level,
         message: Logging.Logger.Message,
-        metadata explicitMetadata: Logging.Metadata?,
+        metadata explicitMetadata: Logging.Logger.Metadata?,
         source: String,
         file: String,
         function: String,
@@ -120,7 +120,7 @@ private extension LogLevel {
 }
 
 private extension LogMetadataValue {
-    static func fromLoggingMetadataValue(_ value: Logging.MetadataValue) -> LogMetadataValue {
+    static func fromLoggingMetadataValue(_ value: Logging.Logger.MetadataValue) -> LogMetadataValue {
         switch value {
         case .string(let string):
             return .string(string)

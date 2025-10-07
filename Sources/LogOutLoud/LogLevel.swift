@@ -5,7 +5,11 @@
 //  Created by Aether on 24/04/2025.
 //
 
+#if canImport(OSLog)
+import OSLog
+#else
 import os
+#endif
 import SwiftUI
 
 /// The severity level of a log message.
@@ -16,7 +20,7 @@ import SwiftUI
 /// ```swift
 /// if level >= .error { … }
 /// ```
-public enum LogLevel: Int, CaseIterable, Comparable {
+public enum LogLevel: Int, CaseIterable, Comparable, Sendable {
     /// Debug-level messages. Enabled in debug builds.
     case debug = 0
     /// Informational messages.
@@ -53,23 +57,3 @@ public enum LogLevel: Int, CaseIterable, Comparable {
     }
 }
 
-@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
-extension LogLevel {
-    /// Maps our ``LogLevel`` to Apple's modern `os.Logger.Level` enumeration.
-    var osLoggerLevel: os.Logger.Level {
-        switch self {
-        case .debug:
-            return .debug
-        case .info:
-            return .info
-        case .notice:
-            return .notice
-        case .warning:
-            return .warning
-        case .error:
-            return .error
-        case .fault:
-            return .fault
-        }
-    }
-}
