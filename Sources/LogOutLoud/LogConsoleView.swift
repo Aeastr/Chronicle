@@ -99,37 +99,20 @@ public struct LogConsoleView: View {
             .searchable(text: $searchText, prompt: "Search")
             .toolbar{
                 ToolbarItem(placement: .bottomBar) {
-                    levelMenu
+                    if #available(iOS 16.4, macOS 13.3, tvOS 16.4, *) {
+                        levelMenu()
+                            .menuActionDismissBehavior(.disabled)
+                    } else {
+                        levelMenu()
+                    }
                 }
                 ToolbarItem(placement: .navigation) {
-                    Menu("Options", systemImage: "ellipsis") {
-                        let exportString = exportText()
-                        Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
-                        Toggle("Pause Updates", systemImage: pauseUpdates ? "playpause.fill" : "pause.circle", isOn: Binding(
-                            get: { pauseUpdates },
-                            set: { newValue in
-                                pauseUpdates = newValue
-                                if newValue {
-                                    pausedEntries = store.entries
-                                } else {
-                                    pausedEntries.removeAll(keepingCapacity: false)
-                                }
-                            }
-                        ))
-                        Toggle("Show Metadata", systemImage: "curlybraces", isOn: $showMetadata)
-                        Toggle("Show Timestamps", systemImage: "clock", isOn: $showTimestamps)
-                        Divider()
-                        Button {
-                            copyVisibleEntries()
-                        } label: {
-                            Label("Copy Visible Entries", systemImage: "doc.on.doc")
-                        }
-                        .disabled(filteredEntries.isEmpty)
-                        if !exportString.isEmpty {
-                            ShareLink(item: exportString) {
-                                Label("Export…", systemImage: "square.and.arrow.up")
-                            }
-                        }
+                    let exportString = exportText()
+                    if #available(iOS 16.4, macOS 13.3, tvOS 16.4, *) {
+                        optionsMenu(exportString: exportString)
+                            .menuActionDismissBehavior(.disabled)
+                    } else {
+                        optionsMenu(exportString: exportString)
                     }
                 }
                 if #available(iOS 26, *){
@@ -205,6 +188,42 @@ public struct LogConsoleView: View {
         }
     }
 
+    @ViewBuilder
+    private func optionsMenu(exportString: String) -> some View {
+        Menu("Options", systemImage: "ellipsis") {
+            Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
+            Toggle(
+                pauseUpdates ? "Resume Updates" : "Pause Updates",
+                systemImage: pauseUpdates ? "playpause.fill" : "pause.circle",
+                isOn: Binding(
+                    get: { pauseUpdates },
+                    set: { newValue in
+                        pauseUpdates = newValue
+                        if newValue {
+                            pausedEntries = store.entries
+                        } else {
+                            pausedEntries.removeAll(keepingCapacity: false)
+                        }
+                    }
+                )
+            )
+            Toggle("Show Metadata", systemImage: "curlybraces", isOn: $showMetadata)
+            Toggle("Show Timestamps", systemImage: "clock", isOn: $showTimestamps)
+            Divider()
+            Button {
+                copyVisibleEntries()
+            } label: {
+                Label("Copy Visible Entries", systemImage: "doc.on.doc")
+            }
+            .disabled(filteredEntries.isEmpty)
+            if !exportString.isEmpty {
+                ShareLink(item: exportString) {
+                    Label("Export…", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+    }
+
     private func exportText() -> String {
         filteredEntries
             .map { formattedLine(for: $0) }
@@ -240,25 +259,29 @@ public struct LogConsoleView: View {
         return components.joined(separator: " | ")
     }
 
-    private var levelMenu: some View {
+    @ViewBuilder
+    private func levelMenu() -> some View {
         Menu {
             ForEach(LogLevel.allCases, id: \.self) { level in
                 Button {
                     toggle(level)
                 } label: {
                     HStack {
-                        Image(systemName: "checkmark")
-                            .opacity(selectedLevels.contains(level) ? 1 : 0)
+                        if selectedLevels.contains(level) {
+                            Image(systemName: "checkmark")
+                        }
                         Text(level.displayName)
                     }
                 }
             }
             Divider()
-            Button("Select All") {
-                selectedLevels = Set(LogLevel.allCases)
-            }
-            Button("Show None") {
-                selectedLevels.removeAll()
+            ControlGroup {
+                Button("All", systemImage: "checkmark.circle") {
+                    selectedLevels = Set(LogLevel.allCases)
+                }
+                Button("None", systemImage: "circle.slash") {
+                    selectedLevels.removeAll()
+                }
             }
         } label: {
             Label("Levels", systemImage: "line.3.horizontal.decrease.circle")
