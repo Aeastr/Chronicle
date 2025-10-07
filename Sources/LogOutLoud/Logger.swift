@@ -67,7 +67,6 @@ public final class Logger: @unchecked Sendable {
         label: "world.aethers.logkit.logger.allowedLevels",
         attributes: .concurrent
     )
-    private var sinks: [UUID: WeakSink] = [:]
 
     /// Creates a logger with a specific subsystem.
     public init(subsystem: String = Bundle.main.bundleIdentifier ?? "LogKit") {
@@ -82,30 +81,6 @@ public final class Logger: @unchecked Sendable {
     }
 
     public typealias Message = () -> String
-    /// Handle for unregistering added log sinks.
-    public struct SinkToken: Hashable, Sendable {
-        fileprivate let id: UUID
-    }
-
-    /// Registers an additional sink that will receive all log events.
-    /// - Parameter sink: The sink instance to add.
-    /// - Returns: A token that can be used to remove the sink.
-    @discardableResult
-    public func addSink(_ sink: LogSink) -> SinkToken {
-        let id = UUID()
-        let token = SinkToken(id: id)
-        queue.async(flags: .barrier) {
-            self.sinks[id] = WeakSink(value: sink)
-        }
-        return token
-    }
-
-    /// Removes a previously registered sink using its token.
-    public func removeSink(_ token: SinkToken) {
-        queue.async(flags: .barrier) {
-            self.sinks[token.id] = nil
-        }
-    }
     
     /// Updates which log levels are emitted.
     ///
@@ -139,20 +114,30 @@ public final class Logger: @unchecked Sendable {
         function: String = #function,
         line: Int = #line
     ) {
-        guard let prepared = queue.sync(execute: {
-            prepareLog(
-                message: message,
-                level: level,
-                tags: tags,
+        queue.sync {
+            guard allowedLevels.isEmpty
+                    || allowedLevels.contains(level)
+            else {
+                return
+            }
+            
+            let tagPrefix = formatTags(tags)
+            let metadataPayload = metadataPayload(
                 metadata: metadata,
+                tags: tags,
                 file: file,
                 function: function,
                 line: line
             )
-        }) else { return }
+            let resolvedMessage = message()
+            let logLine = composeLogLine(
+                message: resolvedMessage,
+                tagPrefix: tagPrefix,
+                metadataPayload: metadataPayload
+            )
 
-        broadcast(prepared.event)
-        send(prepared.line, level: level)
+            send(logLine, level: level)
+        }
     }
     
     /// Logs multiple messages if their level is allowed.
@@ -176,23 +161,28 @@ public final class Logger: @unchecked Sendable {
         function: String = #function,
         line: Int = #line
     ) {
-        let prepared = queue.sync {
-            prepareLogs(
-                messages: messages,
-                level: level,
-                tags: tags,
+        queue.sync {
+            guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
+                return
+            }
+            let tagPrefix = formatTags(tags)
+            let metadataPayload = metadataPayload(
                 metadata: metadata,
+                tags: tags,
                 file: file,
                 function: function,
                 line: line
             )
-        }
 
-        guard !prepared.isEmpty else { return }
-
-        for log in prepared {
-            broadcast(log.event)
-            send(log.line, level: level)
+            for messageClosure in messages {
+                let resolvedMessage = messageClosure()
+                let logLine = composeLogLine(
+                    message: resolvedMessage,
+                    tagPrefix: tagPrefix,
+                    metadataPayload: metadataPayload
+                )
+                send(logLine, level: level)
+            }
         }
     }
 
@@ -258,7 +248,7 @@ public final class Logger: @unchecked Sendable {
         file: String,
         function: String,
         line: Int
-    ) -> MetadataResult? {
+    ) -> String? {
         var structured: LogMetadata = metadata.reduce(into: [:]) { partialResult, element in
             partialResult[element.key] = LogMetadataValue.fromAny(element.value)
         }
@@ -281,8 +271,7 @@ public final class Logger: @unchecked Sendable {
         }
 
         guard !structured.isEmpty else { return nil }
-        let formatted = LogMetadataValue.dictionary(structured).description
-        return MetadataResult(structured: structured, formatted: formatted)
+        return LogMetadataValue.dictionary(structured).description
     }
 
     private func composeLogLine(
@@ -304,126 +293,6 @@ public final class Logger: @unchecked Sendable {
         }
 
         return components.joined(separator: " | ")
-    }
-
-    private func broadcast(_ event: LogEvent) {
-        let targets: [LogSink] = queue.sync {
-            sinks.compactMap { $0.value.value }
-        }
-
-        guard !targets.isEmpty else { return }
-        targets.forEach { $0.receive(event) }
-
-        queue.async(flags: .barrier) {
-            self.cleanupSinksLocked()
-        }
-    }
-
-    private func prepareLog(
-        message: Message,
-        level: LogLevel,
-        tags: [Tag],
-        metadata: [String: CustomStringConvertible],
-        file: String,
-        function: String,
-        line: Int
-    ) -> PreparedLog? {
-        guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
-            return nil
-        }
-
-        let tagPrefix = formatTags(tags)
-        let metadataResult = metadataPayload(
-            metadata: metadata,
-            tags: tags,
-            file: file,
-            function: function,
-            line: line
-        )
-        let resolvedMessage = message()
-        let logLine = composeLogLine(
-            message: resolvedMessage,
-            tagPrefix: tagPrefix,
-            metadataPayload: metadataResult?.formatted
-        )
-
-        let event = LogEvent(
-            subsystem: subsystem,
-            level: level,
-            tags: tags,
-            message: resolvedMessage,
-            metadata: metadataResult?.structured,
-            file: file,
-            function: function,
-            line: line,
-            formatted: logLine
-        )
-
-        return PreparedLog(line: logLine, event: event)
-    }
-
-    private func prepareLogs(
-        messages: [Message],
-        level: LogLevel,
-        tags: [Tag],
-        metadata: [String: CustomStringConvertible],
-        file: String,
-        function: String,
-        line: Int
-    ) -> [PreparedLog] {
-        guard allowedLevels.isEmpty || allowedLevels.contains(level) else {
-            return []
-        }
-
-        let tagPrefix = formatTags(tags)
-        let metadataResult = metadataPayload(
-            metadata: metadata,
-            tags: tags,
-            file: file,
-            function: function,
-            line: line
-        )
-
-        return messages.map { closure in
-            let resolved = closure()
-            let logLine = composeLogLine(
-                message: resolved,
-                tagPrefix: tagPrefix,
-                metadataPayload: metadataResult?.formatted
-            )
-
-            let event = LogEvent(
-                subsystem: subsystem,
-                level: level,
-                tags: tags,
-                message: resolved,
-                metadata: metadataResult?.structured,
-                file: file,
-                function: function,
-                line: line,
-                formatted: logLine
-            )
-
-            return PreparedLog(line: logLine, event: event)
-        }
-    }
-
-    private func cleanupSinksLocked() {
-        sinks = sinks.filter { $0.value.value != nil }
-    }
-
-    private struct MetadataResult {
-        let structured: LogMetadata
-        let formatted: String
-    }
-
-    private struct PreparedLog {
-        let line: String
-        let event: LogEvent
-    }
-
-    private struct WeakSink {
-        weak var value: LogSink?
     }
 
 #if canImport(os.signpost)
@@ -449,7 +318,7 @@ public final class Logger: @unchecked Sendable {
                 file: file,
                 function: function,
                 line: line
-            )?.formatted
+            )
         )
 
         os_signpost(.begin, log: osLog, name: name, signpostID: signpostID, "%{public}@", payload)
@@ -476,7 +345,7 @@ public final class Logger: @unchecked Sendable {
                 file: file,
                 function: function,
                 line: line
-            )?.formatted
+            )
         )
 
         os_signpost(.end, log: osLog, name: name, signpostID: id, "%{public}@", payload)
@@ -504,7 +373,7 @@ public final class Logger: @unchecked Sendable {
                 file: file,
                 function: function,
                 line: line
-            )?.formatted
+            )
         )
 
         os_signpost(.event, log: osLog, name: name, signpostID: signpostID, "%{public}@", payload)

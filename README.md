@@ -39,7 +39,6 @@
 - Runtime filtering by `LogLevel`, async logging helper, and zero-overhead disabled logs  
 - Signpost convenience APIs for performance tracing  
 - Optional SwiftLog integration (`LoggingSystem.bootstrapLogOutLoud`)  
-- Terminal-style in-app console via `LogStore`/`ObservableLogStore` and matching views  
 
 
 ---
@@ -139,26 +138,6 @@ public enum LogMetadataValue: Sendable, CustomStringConvertible {
 
 Use `LogMetadataValue` (or its literal conformances) to build structured metadata payloads that render as JSON-like strings.
 
-### LogEvent
-
-```swift
-public struct LogEvent: Identifiable, Sendable {
-    public let id: UUID
-    public let timestamp: Date
-    public let subsystem: String
-    public let level: LogLevel
-    public let tags: [Tag]
-    public let message: String
-    public let metadata: LogMetadata?
-    public let file: String
-    public let function: String
-    public let line: Int
-    public let formatted: String
-}
-```
-
-`LogSink` is a lightweight protocol (`func receive(_ event: LogEvent)`) that you can implement to forward logs elsewhere.
-
 ### Logger
 
 ```swift
@@ -166,9 +145,6 @@ public final class Logger {
     public static let shared: Logger
     public var subsystem: String
     public func setAllowedLevels(_ levels: Set<LogLevel>)
-    @discardableResult
-    public func addSink(_ sink: LogSink) -> SinkToken
-    public func removeSink(_ token: SinkToken)
     public func log(
         _ message: @autoclosure () -> String,
         level: LogLevel,
@@ -200,26 +176,6 @@ public final class Logger {
     @available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 5.0, *)
     public func eventSignpost(...)
 }
-```
-
-### LogStore (Combine) & LogConsoleView
-
-```swift
-@available(iOS 13.0, macOS 10.15, tvOS 13.0, watchOS 6.0, *)
-public final class LogStore: ObservableObject, LogSink { … }
-
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
-public struct LogConsoleView: View { … }
-```
-
-### ObservableLogStore (Observation) & ObservableLogConsoleView
-
-```swift
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
-@Observable public final class ObservableLogStore: LogSink { … }
-
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
-public struct ObservableLogConsoleView: View { … }
 ```
 
 ---
@@ -293,32 +249,6 @@ await Logger.shared.logAsync(level: .debug, tags: [.network]) {
 }
 ```
 
-### 6. In-App Console (optional)
-
-```swift
-struct ConsoleHost: View {
-  @StateObject private var store = LogStore(capacity: 200)
-
-  var body: some View {
-    LogConsoleView(store: store)
-      .onAppear { store.attach(to: Logger.shared(for: "com.example.feature")) }
-  }
-}
-```
-
-```swift
-// Observation-based variant (iOS 17+/macOS 14+)
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
-struct ConsoleHostModern: View {
-  @State private var store = ObservableLogStore(capacity: 200)
-
-  var body: some View {
-    ObservableLogConsoleView(store: store)
-      .onAppear { store.attach(to: Logger.shared(for: "com.example.feature")) }
-  }
-}
-```
-
 ---
 
 ## Use Cases
@@ -362,39 +292,6 @@ Output resembles:
 
 ---
 
-## In-App Console
-
-Stream logs into the app for QA or debug builds:
-
-```swift
-struct LegacyConsole: View {
-  @StateObject private var store = LogStore(capacity: 300)
-
-  var body: some View {
-    LogConsoleView(store: store)
-      .onAppear { store.attach() } // defaults to Logger.shared
-  }
-}
-```
-
-```swift
-@available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *)
-struct ModernConsole: View {
-  @State private var store = ObservableLogStore()
-
-  var body: some View {
-    ObservableLogConsoleView(store: store)
-      .onAppear { store.attach() }
-  }
-}
-```
-
-- Customize capacity to bound retained events.
-- Call `store.clear()` to reset the buffer.
-- Use `Logger.addSink` if you need to pipe the same events into multiple consumers.
-
----
-
 ## Signposts
 
 When `os.signpost` is available you can trace performance-critical paths using the same metadata helpers:
@@ -434,7 +331,6 @@ Under the hood LogOutLoud bridges the message, metadata, and level mappings back
 - **Structured metadata** without pulling in heavy frameworks  
 - **Zero-overhead** when logs are filtered out  
 - **Tools ready** with async helpers, signposts, and SwiftLog adapter  
-- **In-app console** for QA/debug builds without extra plumbing  
 
 ---
 
