@@ -352,13 +352,19 @@ struct RootView: View {
                 Button("Console") { showConsole = true }
             }
             .sheet(isPresented: $showConsole) {
-                LogConsolePanel() // uses the environment store by default
+                if #available(iOS 16.0, macOS 13.0, tvOS 16.0, *) {
+                    LogConsolePanel() // uses the environment store by default
+                } else {
+                    Text("Console available on iOS 16+/macOS 13+/tvOS 16+.")
+                }
             }
     }
 }
 ```
 
 Prefer to build your own UI? Inject the `LogConsoleStore` manually and read its `entries` array, or register a custom `LogEventSink` for alternative destinations.
+
+> The provided SwiftUI console components target iOS 16.0, macOS 13.0, and tvOS 16.0 or newer.
 
 ---
 

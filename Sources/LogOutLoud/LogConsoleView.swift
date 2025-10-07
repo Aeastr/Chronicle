@@ -47,7 +47,7 @@ public extension View {
     }
 }
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 public struct LogConsolePanel: View {
     @Environment(\.logConsole) private var store
 
@@ -74,7 +74,7 @@ public struct LogConsolePanel: View {
     }
 }
 
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 public struct LogConsoleView: View {
     @ObservedObject private var store: LogConsoleStore
     @Environment(\.dismiss) var dismiss
@@ -93,7 +93,7 @@ public struct LogConsoleView: View {
             }
             .searchable(text: $searchText, prompt: "Search")
             .toolbar{
-                ToolbarItem(placement: .navigation) {
+                ToolbarItem(placement: .bottomBar) {
                     levelMenu
                 }
                 ToolbarItem(placement: .navigation) {
@@ -101,7 +101,12 @@ public struct LogConsoleView: View {
                         Toggle("Auto-Scroll", isOn: $autoScroll)
                     }
                 }
-                ToolbarItem(placement: .automatic) {
+                if #available(iOS 26, *){
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                    ToolbarSpacer(.flexible, placement: .bottomBar)
+                }
+                ToolbarItem(placement: .bottomBar) {
                     Button(role: .destructive) {
                         store.clear()
                     } label: {
@@ -268,14 +273,11 @@ private extension LogLevel {
     }
 }
 
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 private enum PlatformColor {
     static var background: Color {
         #if canImport(UIKit)
-        if #available(iOS 15.0, tvOS 15.0, *) {
-            return Color(uiColor: .systemBackground)
-        } else {
-            return Color(.systemBackground)
-        }
+        return Color(uiColor: .systemBackground)
         #elseif canImport(AppKit)
         return Color(nsColor: .windowBackgroundColor)
         #else
@@ -285,11 +287,7 @@ private enum PlatformColor {
 
     static var secondaryBackground: Color {
         #if canImport(UIKit)
-        if #available(iOS 15.0, tvOS 15.0, *) {
-            return Color(uiColor: .secondarySystemBackground)
-        } else {
-            return Color(.secondarySystemBackground)
-        }
+        return Color(uiColor: .secondarySystemBackground)
         #elseif canImport(AppKit)
         return Color(nsColor: .underPageBackgroundColor)
         #else
@@ -299,7 +297,7 @@ private enum PlatformColor {
 }
 
 #if DEBUG && canImport(SwiftUI)
-@available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 struct LogConsolePanel_Previews: PreviewProvider {
     @MainActor
     static func makeStore() -> LogConsoleStore {

@@ -14,7 +14,7 @@ extension Tag {
 }
 
 
-@available(iOS 15.0, *)
+@available(iOS 16.0, *)
 public struct LogOutLoud_ExampleView: View {
     @State private var counter = 0
     @State private var showConsole = false
@@ -273,7 +273,7 @@ public struct LogOutLoud_ExampleView: View {
 }
 
 #Preview {
-    if #available(iOS 15.0, *) {
+    if #available(iOS 16.0, *) {
         LogOutLoud_ExampleView()
     } else {
         // Fallback on earlier versions
