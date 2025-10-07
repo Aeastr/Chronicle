@@ -5,7 +5,7 @@
     A lightweight Swift logging package that wraps Apple’s Unified Logging
     (`os_log`)
     <br>
-    <i>Core logging supports iOS 13 / macOS 10.15 / tvOS 13 / watchOS 6+, SwiftUI console targets iOS 16 / macOS 13 / tvOS 16+</i>
+    <i>Core logging supports iOS 13 / macOS 10.15 / tvOS 13 / watchOS 6+, SwiftUI console targets iOS 16 / macOS 13 / tvOS 16+ / watchOS 9+</i>
   </p>
 </div>
 
