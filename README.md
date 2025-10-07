@@ -5,7 +5,7 @@
     A lightweight Swift logging package that wraps Apple’s Unified Logging
     (`os_log`)
     <br>
-    <i>Compatible with iOS 13.0, macOS 10.15, tvOS 13, watchOS 6 and later</i>
+    <i>Core logging supports iOS 13 / macOS 10.15 / tvOS 13 / watchOS 6+, SwiftUI console targets iOS 16 / macOS 13 / tvOS 16+</i>
   </p>
 </div>
 
@@ -37,6 +37,7 @@
 - A global, shared `Logger` singleton plus multiple keyed shared instances for packages/modules  
 - Extensible, enum-style `Tag`s and JSON-like structured metadata via `LogMetadataValue`  
 - Runtime filtering by `LogLevel`, async logging helper, and zero-overhead disabled logs  
+- Optional in-app console with SwiftUI view, environment modifier, and composable store (pause, metadata/timestamp toggles, copy/export)  
 - Signpost convenience APIs for performance tracing  
 - Optional SwiftLog integration (`LoggingSystem.bootstrapLogOutLoud`)  
 
@@ -305,6 +306,30 @@ Use `eventSignpost` for single-point events.
 
 ---
 
+## Event Sinks & Console Wiring
+
+Need to observe logs in real time? Register additional sinks with the global logger:
+
+```swift
+let token = Logger.shared.addEventSink { entry in
+    // Stream to analytics, write to file, etc.
+    print("[\(entry.level)] \(entry.message)")
+}
+
+// Later, remove when you no longer need the sink
+Logger.shared.removeEventSink(token)
+```
+
+You can also opt-in to the built-in console store manually:
+
+```swift
+@MainActor let consoleStore = Logger.shared.enableConsole(maxEntries: 2_000)
+```
+
+Use `.consoleStore` to fetch or tear down the store as needed.
+
+---
+
 ## SwiftLog Integration
 
 Prefer the `swift-log` API surface? Bootstrap once and use `Logging.Logger` everywhere:
@@ -320,6 +345,56 @@ logger.notice("Task queued", metadata: ["id": .string(task.id)])
 ```
 
 Under the hood LogOutLoud bridges the message, metadata, and level mappings back to Unified Logging.
+
+---
+
+## In-App Log Console
+
+Need an on-device console for QA or support builds? LogOutLoud can mirror every emitted entry into a live buffer that powers a SwiftUI view.
+
+### Enable the console
+
+Opt-in so there is zero overhead when you do not need UI logging:
+
+```swift
+// Typically in your App or setup code
+let consoleStore = Logger.shared.enableConsole(maxEntries: 1_000)
+```
+
+### Wire it into SwiftUI
+
+Use the provided environment modifier and drop-in view:
+
+```swift
+struct RootView: View {
+    @State private var showConsole = false
+
+    var body: some View {
+        Content()
+            .logConsole(enabled: true) // installs the live sink lazily
+            .toolbar {
+                Button("Console") { showConsole = true }
+            }
+            .sheet(isPresented: $showConsole) {
+                if #available(iOS 16.0, macOS 13.0, tvOS 16.0, *) {
+                    LogConsolePanel() // uses the environment store by default
+                } else {
+                    Text("Console available on iOS 16+/macOS 13+/tvOS 16+.")
+                }
+            }
+    }
+}
+```
+
+Prefer to build your own UI? Inject the `LogConsoleStore` manually and read its `entries` array, or register a custom `LogEventSink` for alternative destinations.
+
+### Console capabilities
+- Pause or resume live updates and keep auto-scroll in sync
+- Toggle metadata and timestamp display per session
+- Copy or share the currently visible entries
+- Confirm before clearing buffered logs
+
+> _SwiftUI console requires iOS 16.0, macOS 13.0, or tvOS 16.0._
 
 ---
 
