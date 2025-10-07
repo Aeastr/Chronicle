@@ -87,57 +87,67 @@ public struct LogConsoleView: View {
 
     public var body: some View {
         NavigationStack {
-            List {
-                Section("Display") {
-                    Toggle("Show Metadata", isOn: $showMetadata)
-                    Toggle("Show Timestamps", isOn: $showTimestamps)
-                    Toggle("Pause Updates", isOn: Binding(
-                        get: { pauseUpdates },
-                        set: { newValue in
-                            pauseUpdates = newValue
-                            if newValue {
-                                pausedEntries = store.entries
-                            } else {
-                                pausedEntries.removeAll(keepingCapacity: false)
+            TabView {
+                
+                List {
+                    
+                    Section {
+                        Button(role: .destructive) {
+                            showClearConfirmation = true
+                        } label: {
+                            Label("Clear Entries", systemImage: "trash")
+                        }
+                        .confirmationDialog(
+                            "Clear log entries?",
+                            isPresented: $showClearConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete all entries", role: .destructive) {
+                                store.clear()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
+                    }
+                    
+                    Section("Entries") {
+                        ForEach(filteredEntries) { entry in
+                            entryRow(entry)
+                        }
+                    }
+                }
+                .navigationTitle("Logs")
+                
+                
+                List {
+                    Section("Display") {
+                        Toggle("Show Metadata", isOn: $showMetadata)
+                        Toggle("Show Timestamps", isOn: $showTimestamps)
+                        Toggle("Pause Updates", isOn: Binding(
+                            get: { pauseUpdates },
+                            set: { newValue in
+                                pauseUpdates = newValue
+                                if newValue {
+                                    pausedEntries = store.entries
+                                } else {
+                                    pausedEntries.removeAll(keepingCapacity: false)
+                                }
+                            }
+                        ))
+                    }
+
+                    Section("Filter") {
+                        Picker("Level", selection: $selectedLevel) {
+                            Text("All").tag(LogLevel?.none)
+                            ForEach(LogLevel.allCases, id: \.self) { level in
+                                Text(level.displayName).tag(LogLevel?.some(level))
                             }
                         }
-                    ))
-                }
+                    }
 
-                Section("Filter") {
-                    Picker("Level", selection: $selectedLevel) {
-                        Text("All").tag(LogLevel?.none)
-                        ForEach(LogLevel.allCases, id: \.self) { level in
-                            Text(level.displayName).tag(LogLevel?.some(level))
-                        }
-                    }
                 }
+                .navigationTitle("Options")
 
-                Section("Entries") {
-                    ForEach(filteredEntries) { entry in
-                        entryRow(entry)
-                    }
-                }
-
-                Section {
-                    Button(role: .destructive) {
-                        showClearConfirmation = true
-                    } label: {
-                        Label("Clear Entries", systemImage: "trash")
-                    }
-                    .confirmationDialog(
-                        "Clear log entries?",
-                        isPresented: $showClearConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Delete all entries", role: .destructive) {
-                            store.clear()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    }
-                }
             }
-            .navigationTitle("Logs")
         }
     }
 
@@ -259,38 +269,31 @@ public struct LogConsoleView: View {
 
 #if os(macOS)
     private var macOSBody: some View {
-        NavigationView {
+        NavigationStack {
             logContent
                 .searchable(text: $searchText, prompt: "Search")
-        }
-        .toolbar {
-            ToolbarItem { levelMenu() }
-            ToolbarItem { optionsMenu(exportString: exportText()) }
-            ToolbarItem {
-                Button(role: .destructive) {
-                    showClearConfirmation = true
-                } label: {
-                    Label("Clear", systemImage: "trash")
-                }
-                .tint(.red)
-                .confirmationDialog(
-                    "Clear log entries?",
-                    isPresented: $showClearConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete all entries", role: .destructive) {
-                        store.clear()
+                .toolbar {
+                    ToolbarItem { levelMenu() }
+                    ToolbarItem { optionsMenu(exportString: exportText()) }
+                    ToolbarItem {
+                        Button(role: .destructive) {
+                            showClearConfirmation = true
+                        } label: {
+                            Label("Clear", systemImage: "trash")
+                        }
+                        .tint(.red)
+                        .confirmationDialog(
+                            "Clear log entries?",
+                            isPresented: $showClearConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete all entries", role: .destructive) {
+                                store.clear()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
                     }
-                    Button("Cancel", role: .cancel) {}
                 }
-            }
-            ToolbarItem {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-            }
         }
         .background(backgroundColor)
     }
@@ -298,7 +301,7 @@ public struct LogConsoleView: View {
 
 #if os(iOS) || os(tvOS)
     private var mobileBody: some View {
-        NavigationView {
+        NavigationStack {
             logContent
                 .searchable(text: $searchText, prompt: "Search")
                 .toolbar {
@@ -464,8 +467,8 @@ public struct LogConsoleView: View {
     private func optionsMenu(exportString: String) -> some View {
         Menu("Options", systemImage: "ellipsis") {
             Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
-            Toggle(pauseUpdates ? "Resume Updates" : "Pause Updates",
-                   systemImage: pauseUpdates ? "playpause.fill" : "pause.circle",
+            Toggle("Pause Updates",
+                   systemImage: "pause.circle",
                    isOn: Binding(
                     get: { pauseUpdates },
                     set: { newValue in
