@@ -82,6 +82,10 @@ public struct LogConsoleView: View {
     @State private var searchText = ""
     @State private var autoScroll = true
     @State private var showClearConfirmation = false
+    @State private var pauseUpdates = false
+    @State private var showMetadata = true
+    @State private var showTimestamps = true
+    @State private var pausedEntries: [LogEntry] = []
 
     public init(store: LogConsoleStore) {
         self._store = ObservedObject(wrappedValue: store)
@@ -99,7 +103,33 @@ public struct LogConsoleView: View {
                 }
                 ToolbarItem(placement: .navigation) {
                     Menu("Options", systemImage: "ellipsis") {
-                        Toggle("Auto-Scroll", isOn: $autoScroll)
+                        let exportString = exportText()
+                        Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
+                        Toggle("Pause Updates", systemImage: pauseUpdates ? "playpause.fill" : "pause.circle", isOn: Binding(
+                            get: { pauseUpdates },
+                            set: { newValue in
+                                pauseUpdates = newValue
+                                if newValue {
+                                    pausedEntries = store.entries
+                                } else {
+                                    pausedEntries.removeAll(keepingCapacity: false)
+                                }
+                            }
+                        ))
+                        Toggle("Show Metadata", systemImage: "curlybraces", isOn: $showMetadata)
+                        Toggle("Show Timestamps", systemImage: "clock", isOn: $showTimestamps)
+                        Divider()
+                        Button {
+                            copyVisibleEntries()
+                        } label: {
+                            Label("Copy Visible Entries", systemImage: "doc.on.doc")
+                        }
+                        .disabled(filteredEntries.isEmpty)
+                        if !exportString.isEmpty {
+                            ShareLink(item: exportString) {
+                                Label("Export…", systemImage: "square.and.arrow.up")
+                            }
+                        }
                     }
                 }
                 if #available(iOS 26, *){
@@ -152,7 +182,7 @@ public struct LogConsoleView: View {
             }
             .background(PlatformColor.secondaryBackground)
             .onChange(of: filteredEntries.last?.id) { id in
-                guard autoScroll, let id else { return }
+                guard autoScroll, !pauseUpdates, let id else { return }
                 withAnimation(.easeOut) {
                     proxy.scrollTo(id, anchor: .bottom)
                 }
@@ -161,7 +191,8 @@ public struct LogConsoleView: View {
     }
 
     private var filteredEntries: [LogEntry] {
-        store.entries.filter { entry in
+        let baseEntries = pauseUpdates ? pausedEntries : store.entries
+        return baseEntries.filter { entry in
             let levelMatch = selectedLevels.contains(entry.level)
             let searchMatch: Bool
             if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
@@ -172,6 +203,41 @@ public struct LogConsoleView: View {
             }
             return levelMatch && searchMatch
         }
+    }
+
+    private func exportText() -> String {
+        filteredEntries
+            .map { formattedLine(for: $0) }
+            .joined(separator: "\n")
+    }
+
+    private func copyVisibleEntries() {
+        let text = exportText()
+        guard !text.isEmpty else { return }
+#if canImport(UIKit)
+        UIPasteboard.general.string = text
+#elseif canImport(AppKit)
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+#endif
+    }
+
+    private func formattedLine(for entry: LogEntry) -> String {
+        var components: [String] = []
+
+        if showTimestamps {
+            components.append(Self.timestampFormatter.string(from: entry.timestamp))
+        }
+
+        components.append(entry.level.displayName)
+        components.append(entry.taggedMessage)
+
+        if showMetadata, let metadata = entry.renderedMetadata {
+            components.append(metadata)
+        }
+
+        return components.joined(separator: " | ")
     }
 
     private var levelMenu: some View {
@@ -211,10 +277,12 @@ public struct LogConsoleView: View {
     private func entryRow(_ entry: LogEntry) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 8) {
-                Text(Self.timestampFormatter.string(from: entry.timestamp))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
+                if showTimestamps {
+                    Text(Self.timestampFormatter.string(from: entry.timestamp))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
 
                 Text(entry.level.displayName)
                     .font(.caption2)
@@ -233,7 +301,7 @@ public struct LogConsoleView: View {
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
 
-            if let metadata = entry.renderedMetadata {
+            if showMetadata, let metadata = entry.renderedMetadata {
                 Text(metadata)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
