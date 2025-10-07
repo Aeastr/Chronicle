@@ -41,7 +41,116 @@ public extension View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0,*)
+// MARK: - watchOS implementation
+
+#if os(watchOS)
+
+@available(watchOS 9.0, *)
+public struct LogConsolePanel: View {
+    @Environment(\.logConsole) private var store
+
+    public init() {}
+
+    public var body: some View {
+        if let store {
+            LogConsoleView(store: store)
+        } else {
+            VStack(spacing: 8) {
+                Image(systemName: "rectangle.and.text.magnifyingglass")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.secondary)
+                Text("Log console disabled")
+                    .font(.headline)
+                Text("Call .logConsole(enabled:) or inject a LogConsoleStore into the environment.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            .padding()
+        }
+    }
+}
+
+@available(watchOS 9.0, *)
+public struct LogConsoleView: View {
+    @ObservedObject private var store: LogConsoleStore
+    @State private var showMetadata = true
+    @State private var selectedLevel: LogLevel? = nil
+
+    public init(store: LogConsoleStore) {
+        self._store = ObservedObject(wrappedValue: store)
+    }
+
+    public var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Toggle("Show Metadata", isOn: $showMetadata)
+                    Picker("Level", selection: $selectedLevel) {
+                        Text("All").tag(LogLevel?.none)
+                        ForEach(LogLevel.allCases, id: \.self) { level in
+                            Text(level.displayName).tag(LogLevel?.some(level))
+                        }
+                    }
+                }
+
+                Section {
+                    ForEach(filteredEntries) { entry in
+                        entryRow(entry)
+                    }
+                }
+            }
+            .navigationTitle("Logs")
+        }
+    }
+
+    private var filteredEntries: [LogEntry] {
+        guard let selectedLevel else { return store.entries }
+        return store.entries.filter { $0.level >= selectedLevel }
+    }
+
+    @ViewBuilder
+    private func entryRow(_ entry: LogEntry) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(entry.level.displayName)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(levelColor(for: entry.level))
+
+            Text(entry.taggedMessage)
+                .font(.footnote)
+
+            if showMetadata, let metadata = entry.renderedMetadata {
+                Text(metadata)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func levelColor(for level: LogLevel) -> Color {
+        switch level {
+        case .debug: return .gray
+        case .info: return .blue
+        case .notice: return .teal
+        case .warning: return .yellow
+        case .error: return .orange
+        case .fault: return .red
+        }
+    }
+}
+
+#else
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 public struct LogConsolePanel: View {
     @Environment(\.logConsole) private var store
 
@@ -57,29 +166,29 @@ public struct LogConsolePanel: View {
                     .foregroundStyle(.secondary)
                 Text("Log console disabled")
                     .font(.headline)
-                    .foregroundStyle(.primary)
                 Text("Call .logConsole(enabled:) or inject a LogConsoleStore into the environment.")
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
             }
             .padding()
         }
     }
 }
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 10.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
 public struct LogConsoleView: View {
     @ObservedObject private var store: LogConsoleStore
-    @Environment(\.dismiss) var dismiss
+    @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+
     @State private var selectedLevels: Set<LogLevel> = Set(LogLevel.allCases)
     @State private var searchText = ""
     @State private var autoScroll = true
-    @State private var showClearConfirmation = false
     @State private var pauseUpdates = false
     @State private var showMetadata = true
     @State private var showTimestamps = true
+    @State private var showClearConfirmation = false
     @State private var pausedEntries: [LogEntry] = []
 
     public init(store: LogConsoleStore) {
@@ -87,98 +196,98 @@ public struct LogConsoleView: View {
     }
 
     public var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                logContent
-            }
-            .searchable(text: $searchText, prompt: "Search")
-        }
-        .background(backgroundColor)
-        .toolbar {
+        Group {
 #if os(macOS)
-            ToolbarItem(placement: .automatic) {
-                levelMenu()
-            }
-            ToolbarItem(placement: .automatic) {
-                optionsMenu(exportString: exportText())
-            }
-            ToolbarItem(placement: .automatic) {
-                Button(role: .destructive) {
-                    showClearConfirmation = true
-                } label: {
-                    Label("Clear", systemImage: "trash")
-                }
-                .tint(.red)
-                .confirmationDialog(
-                    "Clear log entries?",
-                    isPresented: $showClearConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete all entries", role: .destructive) {
-                        store.clear()
-                    }
-                    Button("Cancel", role: .cancel) {}
-                }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-            }
+            macOSBody
 #else
-            ToolbarItem(placement: .bottomBar) {
-                if #available(iOS 16.4, tvOS 16.4, *) {
-                    levelMenu()
-                        .menuActionDismissBehavior(.disabled)
-                } else {
-                    levelMenu()
-                }
-            }
-            ToolbarItem(placement: .navigation) {
-                let exportString = exportText()
-                if #available(iOS 16.4, tvOS 16.4, *) {
-                    optionsMenu(exportString: exportString)
-                        .menuActionDismissBehavior(.disabled)
-                } else {
-                    optionsMenu(exportString: exportString)
-                }
-            }
-            if #available(iOS 26, tvOS 26, *) {
-                ToolbarSpacer(.flexible, placement: .bottomBar)
-                DefaultToolbarItem(kind: .search, placement: .bottomBar)
-                ToolbarSpacer(.flexible, placement: .bottomBar)
-            }
-            ToolbarItem(placement: .bottomBar) {
-                Button(role: .destructive) {
-                    showClearConfirmation = true
-                } label: {
-                    Label("Clear", systemImage: "trash")
-                }
-                .tint(.red)
-                .confirmationDialog(
-                    "Clear log entries?",
-                    isPresented: $showClearConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete all entries", role: .destructive) {
-                        store.clear()
-                    }
-                    Button("Cancel", role: .cancel) {}
-                }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-            }
+            mobileBody
 #endif
         }
     }
 
+#if os(macOS)
+    private var macOSBody: some View {
+        NavigationView {
+            logContent
+                .searchable(text: $searchText, prompt: "Search")
+        }
+        .toolbar {
+            ToolbarItem { levelMenu() }
+            ToolbarItem { optionsMenu(exportString: exportText()) }
+            ToolbarItem {
+                Button(role: .destructive) {
+                    showClearConfirmation = true
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .tint(.red)
+                .confirmationDialog(
+                    "Clear log entries?",
+                    isPresented: $showClearConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete all entries", role: .destructive) {
+                        store.clear()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+            }
+            ToolbarItem {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+            }
+        }
+        .background(backgroundColor)
+    }
+#endif
+
+#if os(iOS) || os(tvOS)
+    private var mobileBody: some View {
+        NavigationView {
+            logContent
+                .searchable(text: $searchText, prompt: "Search")
+        }
+        .toolbar {
+            ToolbarItem(placement: .bottomBar) {
+                levelMenu()
+                    .persistingMenuIfAvailable()
+            }
+            ToolbarItem(placement: .navigation) {
+                optionsMenu(exportString: exportText())
+                    .persistingMenuIfAvailable()
+            }
+            ToolbarItem(placement: .bottomBar) {
+                Button(role: .destructive) {
+                    showClearConfirmation = true
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .tint(.red)
+                .confirmationDialog(
+                    "Clear log entries?",
+                    isPresented: $showClearConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete all entries", role: .destructive) {
+                        store.clear()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+            }
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+            }
+        }
+        .background(backgroundColor)
+    }
+#endif
 
     private var logContent: some View {
         ScrollViewReader { proxy in
@@ -217,42 +326,6 @@ public struct LogConsoleView: View {
         }
     }
 
-    @ViewBuilder
-    private func optionsMenu(exportString: String) -> some View {
-        Menu("Options", systemImage: "ellipsis") {
-            Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
-            Toggle(
-                pauseUpdates ? "Resume Updates" : "Pause Updates",
-                systemImage: pauseUpdates ? "playpause.fill" : "pause.circle",
-                isOn: Binding(
-                    get: { pauseUpdates },
-                    set: { newValue in
-                        pauseUpdates = newValue
-                        if newValue {
-                            pausedEntries = store.entries
-                        } else {
-                            pausedEntries.removeAll(keepingCapacity: false)
-                        }
-                    }
-                )
-            )
-            Toggle("Show Metadata", systemImage: "curlybraces", isOn: $showMetadata)
-            Toggle("Show Timestamps", systemImage: "clock", isOn: $showTimestamps)
-            Divider()
-            Button {
-                copyVisibleEntries()
-            } label: {
-                Label("Copy Visible Entries", systemImage: "doc.on.doc")
-            }
-            .disabled(filteredEntries.isEmpty)
-            if !exportString.isEmpty {
-                ShareLink(item: exportString) {
-                    Label("Export…", systemImage: "square.and.arrow.up")
-                }
-            }
-        }
-    }
-
     private func exportText() -> String {
         filteredEntries
             .map { formattedLine(for: $0) }
@@ -264,7 +337,8 @@ public struct LogConsoleView: View {
         guard !text.isEmpty else { return }
 #if canImport(UIKit)
         UIPasteboard.general.string = text
-#elseif canImport(AppKit)
+#endif
+#if canImport(AppKit)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -302,7 +376,7 @@ public struct LogConsoleView: View {
 
     @ViewBuilder
     private func levelMenu() -> some View {
-        Menu {
+        Menu("Levels", systemImage: "line.3.horizontal.decrease.circle") {
             ForEach(LogLevel.allCases, id: \.self) { level in
                 Button {
                     toggle(level)
@@ -316,16 +390,50 @@ public struct LogConsoleView: View {
                 }
             }
             Divider()
-            ControlGroup {
-                Button("All", systemImage: "checkmark.circle") {
-                    selectedLevels = Set(LogLevel.allCases)
-                }
-                Button("None", systemImage: "circle.slash") {
-                    selectedLevels.removeAll()
+            Button {
+                selectedLevels = Set(LogLevel.allCases)
+            } label: {
+                Label("All", systemImage: "checkmark.circle")
+            }
+            Button {
+                selectedLevels.removeAll()
+            } label: {
+                Label("None", systemImage: "circle.slash")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func optionsMenu(exportString: String) -> some View {
+        Menu("Options", systemImage: "ellipsis") {
+            Toggle("Auto-Scroll", systemImage: "arrow.down.to.line", isOn: $autoScroll)
+            Toggle(pauseUpdates ? "Resume Updates" : "Pause Updates",
+                   systemImage: pauseUpdates ? "playpause.fill" : "pause.circle",
+                   isOn: Binding(
+                    get: { pauseUpdates },
+                    set: { newValue in
+                        pauseUpdates = newValue
+                        if newValue {
+                            pausedEntries = store.entries
+                        } else {
+                            pausedEntries.removeAll(keepingCapacity: false)
+                        }
+                    }
+                   ))
+            Toggle("Show Metadata", systemImage: "curlybraces", isOn: $showMetadata)
+            Toggle("Show Timestamps", systemImage: "clock", isOn: $showTimestamps)
+            Divider()
+            Button {
+                copyVisibleEntries()
+            } label: {
+                Label("Copy Visible Entries", systemImage: "doc.on.doc")
+            }
+            .disabled(filteredEntries.isEmpty)
+            if !exportString.isEmpty {
+                ShareLink(item: exportString) {
+                    Label("Export…", systemImage: "square.and.arrow.up")
                 }
             }
-        } label: {
-            Label("Levels", systemImage: "line.3.horizontal.decrease.circle")
         }
     }
 
@@ -363,13 +471,17 @@ public struct LogConsoleView: View {
             Text(entry.taggedMessage)
                 .font(.system(.footnote, design: .monospaced))
                 .foregroundStyle(.primary)
+#if os(iOS) || os(macOS)
                 .textSelection(.enabled)
+#endif
 
             if showMetadata, let metadata = entry.renderedMetadata {
                 Text(metadata)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(.secondary)
+#if os(iOS) || os(macOS)
                     .textSelection(.enabled)
+#endif
             }
         }
         .padding(10)
@@ -404,6 +516,7 @@ public struct LogConsoleView: View {
         return formatter
     }()
 }
+#endif
 
 private extension LogLevel {
     var displayName: String {
@@ -418,62 +531,70 @@ private extension LogLevel {
     }
 }
 
-#if DEBUG && canImport(SwiftUI)
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
+#if os(iOS) || os(tvOS)
+private extension View {
+    @ViewBuilder
+    func persistingMenuIfAvailable() -> some View {
+        if #available(iOS 16.4, tvOS 16.4, *) {
+            self.menuActionDismissBehavior(.disabled)
+        } else {
+            self
+        }
+    }
+}
+#endif
+
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0, *)
 struct LogConsolePanel_Previews: PreviewProvider {
     @MainActor
     static func makeStore() -> LogConsoleStore {
         let store = LogConsoleStore(maxEntries: 200)
 
-        let samples: [LogEntry] = {
-            let lifecycleMetadata: LogMetadata = [
-                "mode": .string("debug"),
-                "version": .string("1.0.0")
-            ]
-            let networkMetadata: LogMetadata = ["latency_ms": .integer(850)]
-            let parsingMetadata: LogMetadata = [
-                "status": .integer(500),
-                "endpoint": .string("/v1/profile"),
-                "retry": .bool(false)
-            ]
+        let lifecycleMetadata: LogMetadata = [
+            "mode": .string("debug"),
+            "version": .string("1.0.0")
+        ]
+        let networkMetadata: LogMetadata = ["latency_ms": .integer(850)]
+        let parsingMetadata: LogMetadata = [
+            "status": .integer(500),
+            "endpoint": .string("/v1/profile"),
+            "retry": .bool(false)
+        ]
 
-            let lifecycleEntry = LogEntry(
-                level: .info,
-                message: "Application initialised",
-                tags: [Tag("Lifecycle")],
-                metadata: lifecycleMetadata,
-                renderedMetadata: LogMetadataValue.dictionary(lifecycleMetadata).description,
-                subsystem: "world.aethers.preview",
-                category: "default",
-                source: .init(file: "App.swift", function: "init()", line: 12)
-            )
+        let lifecycleEntry = LogEntry(
+            level: .info,
+            message: "Application initialised",
+            tags: [Tag("Lifecycle")],
+            metadata: lifecycleMetadata,
+            renderedMetadata: LogMetadataValue.dictionary(lifecycleMetadata).description,
+            subsystem: "world.aethers.preview",
+            category: "default",
+            source: .init(file: "App.swift", function: "init()", line: 12)
+        )
 
-            let networkEntry = LogEntry(
-                level: .warning,
-                message: "Slow network response",
-                tags: [Tag("Network")],
-                metadata: networkMetadata,
-                renderedMetadata: LogMetadataValue.dictionary(networkMetadata).description,
-                subsystem: "world.aethers.preview",
-                category: "default",
-                source: .init(file: "NetworkClient.swift", function: "fetch()", line: 88)
-            )
+        let networkEntry = LogEntry(
+            level: .warning,
+            message: "Slow network response",
+            tags: [Tag("Network")],
+            metadata: networkMetadata,
+            renderedMetadata: LogMetadataValue.dictionary(networkMetadata).description,
+            subsystem: "world.aethers.preview",
+            category: "default",
+            source: .init(file: "NetworkClient.swift", function: "fetch()", line: 88)
+        )
 
-            let parsingEntry = LogEntry(
-                level: .error,
-                message: "Failed to decode payload",
-                tags: [Tag("Parsing"), Tag("API")],
-                metadata: parsingMetadata,
-                renderedMetadata: LogMetadataValue.dictionary(parsingMetadata).description,
-                subsystem: "world.aethers.preview",
-                category: "default",
-                source: .init(file: "ProfileService.swift", function: "loadProfile()", line: 132)
-            )
+        let parsingEntry = LogEntry(
+            level: .error,
+            message: "Failed to decode payload",
+            tags: [Tag("Parsing"), Tag("API")],
+            metadata: parsingMetadata,
+            renderedMetadata: LogMetadataValue.dictionary(parsingMetadata).description,
+            subsystem: "world.aethers.preview",
+            category: "default",
+            source: .init(file: "ProfileService.swift", function: "loadProfile()", line: 132)
+        )
 
-            return [lifecycleEntry, networkEntry, parsingEntry]
-        }()
-
-        samples.forEach { store.append($0) }
+        [lifecycleEntry, networkEntry, parsingEntry].forEach { store.append($0) }
         return store
     }
 
@@ -482,4 +603,3 @@ struct LogConsolePanel_Previews: PreviewProvider {
             .logConsole(makeStore())
     }
 }
-#endif
