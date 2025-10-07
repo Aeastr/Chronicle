@@ -81,6 +81,7 @@ public struct LogConsoleView: View {
     @State private var selectedLevels: Set<LogLevel> = Set(LogLevel.allCases)
     @State private var searchText = ""
     @State private var autoScroll = true
+    @State private var showClearConfirmation = false
 
     public init(store: LogConsoleStore) {
         self._store = ObservedObject(wrappedValue: store)
@@ -108,12 +109,23 @@ public struct LogConsoleView: View {
                 }
                 ToolbarItem(placement: .bottomBar) {
                     Button(role: .destructive) {
-                        store.clear()
+                        showClearConfirmation = true
                     } label: {
                         Label("Clear", systemImage: "trash")
                     }
                     .tint(.red)
+                    .confirmationDialog(
+                        "Clear log entries?",
+                        isPresented: $showClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Delete all entries", role: .destructive) {
+                            store.clear()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
                 }
+                
                 ToolbarItem(placement: .automatic) {
                     Button("", systemImage: "xmark") {
                         dismiss()
@@ -122,6 +134,7 @@ public struct LogConsoleView: View {
             }
             .background(PlatformColor.background)
         }
+        
     }
 
 
