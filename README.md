@@ -33,12 +33,12 @@
 
 ## Features
 
-- A global, shared `Logger` singleton  
-- Multiple named shared logger instances for packages/modules  
-- Extensible, enum-style `Tag`s  
-- Runtime filtering by `LogLevel`  
-- Optional metadata dictionary for structured context  
-- Zero overhead for disabled logs  
+- Adaptive backend: Apple’s modern `os.Logger` on supported OS versions, seamless `os_log` fallback otherwise  
+- A global, shared `Logger` singleton plus multiple keyed shared instances for packages/modules  
+- Extensible, enum-style `Tag`s and JSON-like structured metadata via `LogMetadataValue`  
+- Runtime filtering by `LogLevel`, async logging helper, and zero-overhead disabled logs  
+- Signpost convenience APIs for performance tracing  
+- Optional SwiftLog integration (`LoggingSystem.bootstrapLogOutLoud`)  
 
 
 ---
@@ -73,9 +73,9 @@ networkLogger.log("Network error", level: .error)
 ```
 
 > **Note:**
-> - All logger APIs are synchronous and concurrency-safe for Swift 6.
-> - `Logger.shared(for:)` uses an internal thread-safe registry and is safe for concurrent access.
-> - No async/await is required for any usage.
+> - All logger APIs are concurrency-safe for Swift 6.
+> - `Logger.shared(for:)` uses an internal thread-safe registry.
+> - Use `logAsync` when you want to await expensive message builders without blocking callers.
 
 **This pattern helps you keep logs organized and makes it easy to control logging granularity for different parts of your app or dependencies.**
 
@@ -122,6 +122,22 @@ public enum LogLevel: Int, CaseIterable, Comparable {
 }
 ```
 
+### LogMetadataValue
+
+```swift
+public enum LogMetadataValue: Sendable, CustomStringConvertible {
+    case string(String)
+    case integer(Int)
+    case double(Double)
+    case bool(Bool)
+    case array([LogMetadataValue])
+    case dictionary([String: LogMetadataValue])
+    case null
+}
+```
+
+Use `LogMetadataValue` (or its literal conformances) to build structured metadata payloads that render as JSON-like strings.
+
 ### Logger
 
 ```swift
@@ -136,6 +152,29 @@ public final class Logger {
         metadata: [String: CustomStringConvertible],
         file: String, function: String, line: Int
     )
+    public func log(
+        _ messages: () -> String...,
+        level: LogLevel,
+        tags: [Tag],
+        metadata: [String: CustomStringConvertible],
+        file: String, function: String, line: Int
+    )
+    @available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *)
+    @discardableResult
+    public func logAsync(
+        priority: TaskPriority?,
+        level: LogLevel,
+        tags: [Tag],
+        metadata: [String: CustomStringConvertible],
+        file: String, function: String, line: Int,
+        _ message: @escaping @Sendable () async -> String
+    ) -> Task<Void, Never>
+    @available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 5.0, *)
+    public func beginSignpost(...)
+    @available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 5.0, *)
+    public func endSignpost(...)
+    @available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 5.0, *)
+    public func eventSignpost(...)
 }
 ```
 
@@ -193,8 +232,21 @@ Logger.shared.log(
   "Request failed",
   level: .error,
   tags: [.network],
-  metadata: ["url": request.url, "userID": user.id]
+  metadata: [
+    "url": request.url,
+    "userID": user.id,
+    "retry": false,
+    "metrics": ["duration_ms": 128]
+  ]
 )
+```
+
+### 5. Optional Async Logging
+
+```swift
+await Logger.shared.logAsync(level: .debug, tags: [.network]) {
+  try await DetailedRequestDebugger.makeSummary(for: transaction)
+}
 ```
 
 ---
@@ -205,7 +257,69 @@ Logger.shared.log(
 - **Production filtering** – errors/faults only in release builds  
 - **Subsystem categorization** – network, cache, UI, database  
 - **Structured context** – attach user IDs, request IDs, timing info  
-- **Performance-friendly** – delegates to `os_log`, Apple-optimised  
+- **Performance-friendly** – delegates to Unified Logging backends  
+- **Signpost timelines** – wrap begin/end/event spans without extra boilerplate  
+- **SwiftLog compatible** – drop into server-side or cross-platform logging stacks  
+
+---
+
+## Structured Metadata
+
+Metadata dictionaries are coerced into `LogMetadataValue` behind the scenes, giving you JSON-like output without heavy dependencies:
+
+```swift
+Logger.shared.log(
+  "Cache miss",
+  level: .notice,
+  tags: [.cache],
+  metadata: [
+    "key": "user_42",
+    "reason": "Expired",
+    "context": [
+      "policy": "LRU",
+      "lastHit": 1_714_882_233,
+      "counts": [1, 3, 5]
+    ]
+  ]
+)
+```
+
+Output resembles:
+
+```
+[Cache] Cache miss | {"_source":{"file":"Cache.swift","function":"fetch(_:)","line":42},"_subsystem":"com.myapp","_tags":["Cache"],"context":{"counts":[1,3,5],"lastHit":1714882233,"policy":"LRU"},"key":"user_42","reason":"Expired"}
+```
+
+---
+
+## Signposts
+
+When `os.signpost` is available you can trace performance-critical paths using the same metadata helpers:
+
+```swift
+let id = Logger.shared.beginSignpost("Image Decode", tags: [.ui])
+defer { Logger.shared.endSignpost("Image Decode", id: id) }
+```
+
+Use `eventSignpost` for single-point events.
+
+---
+
+## SwiftLog Integration
+
+Prefer the `swift-log` API surface? Bootstrap once and use `Logging.Logger` everywhere:
+
+```swift
+import Logging
+import LogOutLoud
+
+LoggingSystem.bootstrapLogOutLoud(defaultLogLevel: .info)
+
+let logger = Logger(label: "com.myapp.feature")
+logger.notice("Task queued", metadata: ["id": .string(task.id)])
+```
+
+Under the hood LogOutLoud bridges the message, metadata, and level mappings back to Unified Logging.
 
 ---
 
@@ -214,8 +328,9 @@ Logger.shared.log(
 - **Less boilerplate** than raw `os_log` calls  
 - **Centralised configuration** for filtering and formatting  
 - **Swift-friendly**, type-safe tags instead of string literals  
-- **Optional metadata** without pulling in heavy frameworks  
+- **Structured metadata** without pulling in heavy frameworks  
 - **Zero-overhead** when logs are filtered out  
+- **Tools ready** with async helpers, signposts, and SwiftLog adapter  
 
 ---
 

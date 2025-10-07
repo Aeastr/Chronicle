@@ -16,11 +16,15 @@ let package = Package(
             targets: ["LogOutLoud"]
         )
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0")
+    ],
     targets: [
         .target(
             name: "LogOutLoud",
-            dependencies: []
+            dependencies: [
+                .product(name: "Logging", package: "swift-log")
+            ]
         )
     ]
 )

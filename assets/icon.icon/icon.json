@@ -1,25 +1,38 @@
 {
   "fill" : {
-    "automatic-gradient" : "display-p3:0.25488,0.05884,0.10980,1.00000"
+    "automatic-gradient" : "display-p3:0.78504,0.47916,0.25225,1.00000"
   },
   "groups" : [
     {
+      "blur-material" : 0.5,
       "layers" : [
         {
+          "fill" : {
+            "solid" : "srgb:1.00000,1.00000,1.00000,1.00000"
+          },
+          "hidden" : false,
           "image-name" : "inp.svg",
           "name" : "inp",
-          "opacity" : 1
+          "opacity" : 1,
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
         },
         {
           "blend-mode" : "multiply",
           "glass" : false,
+          "hidden" : true,
           "image-name" : "Scanlines.svg",
           "name" : "Scanlines",
-          "opacity" : 0.17
+          "opacity" : 0.1
         }
       ],
       "position" : {
-        "scale" : 1.5,
+        "scale" : 1.52,
         "translation-in-points" : [
           0,
           0
@@ -29,6 +42,37 @@
         "kind" : "neutral",
         "opacity" : 0.5
       },
+      "translucency" : {
+        "enabled" : true,
+        "value" : 0.5
+      }
+    },
+    {
+      "blur-material" : null,
+      "hidden" : false,
+      "layers" : [
+        {
+          "blend-mode" : "normal",
+          "fill" : {
+            "solid" : "extended-gray:1.00000,1.00000"
+          },
+          "image-name" : "Grid.png",
+          "name" : "Grid",
+          "opacity" : 0.25,
+          "position" : {
+            "scale" : 1,
+            "translation-in-points" : [
+              0,
+              0
+            ]
+          }
+        }
+      ],
+      "shadow" : {
+        "kind" : "none",
+        "opacity" : 0.5
+      },
+      "specular" : false,
       "translucency" : {
         "enabled" : true,
         "value" : 0.5

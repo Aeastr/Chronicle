@@ -5,7 +5,11 @@
 //  Created by Aether on 24/04/2025.
 //
 
+#if canImport(OSLog)
+import OSLog
+#else
 import os
+#endif
 import SwiftUI
 
 /// The severity level of a log message.
@@ -16,7 +20,7 @@ import SwiftUI
 /// ```swift
 /// if level >= .error { … }
 /// ```
-public enum LogLevel: Int, CaseIterable, Comparable {
+public enum LogLevel: Int, CaseIterable, Comparable, Sendable {
     /// Debug-level messages. Enabled in debug builds.
     case debug = 0
     /// Informational messages.
@@ -52,3 +56,4 @@ public enum LogLevel: Int, CaseIterable, Comparable {
         lhs.rawValue < rhs.rawValue
     }
 }
+
