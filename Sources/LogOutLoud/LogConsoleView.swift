@@ -7,12 +7,6 @@
 
 import SwiftUI
 
-#if canImport(UIKit)
-import UIKit
-#elseif canImport(AppKit)
-import AppKit
-#endif
-
 private struct LogConsoleStoreKey: EnvironmentKey {
     static let defaultValue: LogConsoleStore? = nil
 }
@@ -47,7 +41,7 @@ public extension View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 9.0,*)
 public struct LogConsolePanel: View {
     @Environment(\.logConsole) private var store
 
@@ -74,10 +68,11 @@ public struct LogConsolePanel: View {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
+@available(iOS 16.0, macOS 13.0, tvOS 16.0, watchOS 10.0, *)
 public struct LogConsoleView: View {
     @ObservedObject private var store: LogConsoleStore
     @Environment(\.dismiss) var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedLevels: Set<LogLevel> = Set(LogLevel.allCases)
     @State private var searchText = ""
     @State private var autoScroll = true
@@ -92,62 +87,96 @@ public struct LogConsoleView: View {
     }
 
     public var body: some View {
-        NavigationView{
+        NavigationView {
             VStack(spacing: 0) {
                 logContent
             }
             .searchable(text: $searchText, prompt: "Search")
-            .toolbar{
-                ToolbarItem(placement: .bottomBar) {
-                    if #available(iOS 16.4, macOS 13.3, tvOS 16.4, *) {
-                        levelMenu()
-                            .menuActionDismissBehavior(.disabled)
-                    } else {
-                        levelMenu()
-                    }
+        }
+        .background(backgroundColor)
+        .toolbar {
+#if os(macOS)
+            ToolbarItem(placement: .automatic) {
+                levelMenu()
+            }
+            ToolbarItem(placement: .automatic) {
+                optionsMenu(exportString: exportText())
+            }
+            ToolbarItem(placement: .automatic) {
+                Button(role: .destructive) {
+                    showClearConfirmation = true
+                } label: {
+                    Label("Clear", systemImage: "trash")
                 }
-                ToolbarItem(placement: .navigation) {
-                    let exportString = exportText()
-                    if #available(iOS 16.4, macOS 13.3, tvOS 16.4, *) {
-                        optionsMenu(exportString: exportString)
-                            .menuActionDismissBehavior(.disabled)
-                    } else {
-                        optionsMenu(exportString: exportString)
+                .tint(.red)
+                .confirmationDialog(
+                    "Clear log entries?",
+                    isPresented: $showClearConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete all entries", role: .destructive) {
+                        store.clear()
                     }
-                }
-                if #available(iOS 26, *){
-                    ToolbarSpacer(.flexible, placement: .bottomBar)
-                    DefaultToolbarItem(kind: .search, placement: .bottomBar)
-                    ToolbarSpacer(.flexible, placement: .bottomBar)
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    Button(role: .destructive) {
-                        showClearConfirmation = true
-                    } label: {
-                        Label("Clear", systemImage: "trash")
-                    }
-                    .tint(.red)
-                    .confirmationDialog(
-                        "Clear log entries?",
-                        isPresented: $showClearConfirmation,
-                        titleVisibility: .visible
-                    ) {
-                        Button("Delete all entries", role: .destructive) {
-                            store.clear()
-                        }
-                        Button("Cancel", role: .cancel) {}
-                    }
-                }
-                
-                ToolbarItem(placement: .automatic) {
-                    Button("", systemImage: "xmark") {
-                        dismiss()
-                    }
+                    Button("Cancel", role: .cancel) {}
                 }
             }
-            .background(PlatformColor.background)
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+            }
+#else
+            ToolbarItem(placement: .bottomBar) {
+                if #available(iOS 16.4, tvOS 16.4, *) {
+                    levelMenu()
+                        .menuActionDismissBehavior(.disabled)
+                } else {
+                    levelMenu()
+                }
+            }
+            ToolbarItem(placement: .navigation) {
+                let exportString = exportText()
+                if #available(iOS 16.4, tvOS 16.4, *) {
+                    optionsMenu(exportString: exportString)
+                        .menuActionDismissBehavior(.disabled)
+                } else {
+                    optionsMenu(exportString: exportString)
+                }
+            }
+            if #available(iOS 26, tvOS 26, *) {
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+                DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                ToolbarSpacer(.flexible, placement: .bottomBar)
+            }
+            ToolbarItem(placement: .bottomBar) {
+                Button(role: .destructive) {
+                    showClearConfirmation = true
+                } label: {
+                    Label("Clear", systemImage: "trash")
+                }
+                .tint(.red)
+                .confirmationDialog(
+                    "Clear log entries?",
+                    isPresented: $showClearConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    Button("Delete all entries", role: .destructive) {
+                        store.clear()
+                    }
+                    Button("Cancel", role: .cancel) {}
+                }
+            }
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    dismiss()
+                } label: {
+                    Label("Close", systemImage: "xmark")
+                }
+            }
+#endif
         }
-        
     }
 
 
@@ -163,7 +192,7 @@ public struct LogConsoleView: View {
                 .padding(.vertical, 8)
                 .padding(.horizontal, 12)
             }
-            .background(PlatformColor.secondaryBackground)
+            .background(secondaryBackgroundColor)
             .onChange(of: filteredEntries.last?.id) { id in
                 guard autoScroll, !pauseUpdates, let id else { return }
                 withAnimation(.easeOut) {
@@ -259,6 +288,18 @@ public struct LogConsoleView: View {
         return components.joined(separator: " | ")
     }
 
+    private var backgroundColor: Color {
+        colorScheme == .dark ? Color(red: 0.07, green: 0.07, blue: 0.08) : Color(red: 0.96, green: 0.97, blue: 0.98)
+    }
+
+    private var secondaryBackgroundColor: Color {
+        colorScheme == .dark ? Color(red: 0.12, green: 0.12, blue: 0.14) : Color(red: 0.92, green: 0.93, blue: 0.95)
+    }
+
+    private var cardBackgroundColor: Color {
+        colorScheme == .dark ? Color(red: 0.16, green: 0.16, blue: 0.19) : Color.white
+    }
+
     @ViewBuilder
     private func levelMenu() -> some View {
         Menu {
@@ -334,7 +375,7 @@ public struct LogConsoleView: View {
         .padding(10)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(PlatformColor.secondaryBackground.opacity(0.8))
+                .fill(cardBackgroundColor)
         )
     }
 
@@ -374,29 +415,6 @@ private extension LogLevel {
         case .error: return "Error"
         case .fault: return "Fault"
         }
-    }
-}
-
-@available(iOS 16.0, macOS 13.0, tvOS 16.0, *)
-private enum PlatformColor {
-    static var background: Color {
-        #if canImport(UIKit)
-        return Color(uiColor: .systemBackground)
-        #elseif canImport(AppKit)
-        return Color(nsColor: .windowBackgroundColor)
-        #else
-        return Color.white
-        #endif
-    }
-
-    static var secondaryBackground: Color {
-        #if canImport(UIKit)
-        return Color(uiColor: .secondarySystemBackground)
-        #elseif canImport(AppKit)
-        return Color(nsColor: .underPageBackgroundColor)
-        #else
-        return Color.gray.opacity(0.15)
-        #endif
     }
 }
 
