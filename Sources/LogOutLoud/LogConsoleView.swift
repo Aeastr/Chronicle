@@ -284,7 +284,11 @@ private extension LogLevel {
 private enum PlatformColor {
     static var background: Color {
         #if canImport(UIKit)
-        return Color(uiColor: .systemBackground)
+        if #available(iOS 15.0, tvOS 15.0, *) {
+            return Color(uiColor: .systemBackground)
+        } else {
+            return Color(.systemBackground)
+        }
         #elseif canImport(AppKit)
         return Color(nsColor: .windowBackgroundColor)
         #else
@@ -294,7 +298,11 @@ private enum PlatformColor {
 
     static var secondaryBackground: Color {
         #if canImport(UIKit)
-        return Color(uiColor: .secondarySystemBackground)
+        if #available(iOS 15.0, tvOS 15.0, *) {
+            return Color(uiColor: .secondarySystemBackground)
+        } else {
+            return Color(.secondarySystemBackground)
+        }
         #elseif canImport(AppKit)
         return Color(nsColor: .underPageBackgroundColor)
         #else

@@ -72,3 +72,13 @@ public struct LogEntry: Identifiable, Hashable, Sendable {
         return "\(taggedMessage) | \(renderedMetadata)"
     }
 }
+
+public extension LogEntry {
+    static func == (lhs: LogEntry, rhs: LogEntry) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}

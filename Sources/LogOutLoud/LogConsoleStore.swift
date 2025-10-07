@@ -16,7 +16,11 @@ public final class LogConsoleStore: ObservableObject, LogEventSink, @unchecked S
     @Published public private(set) var entries: [LogEntry]
     public private(set) var maxEntries: Int
 
-    public init(maxEntries: Int = Self.defaultMaxEntries) {
+    public convenience init() {
+        self.init(maxEntries: LogConsoleStore.defaultMaxEntries)
+    }
+
+    public init(maxEntries: Int) {
         self.entries = []
         self.maxEntries = max(1, maxEntries)
     }
