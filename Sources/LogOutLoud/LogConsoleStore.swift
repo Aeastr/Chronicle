@@ -35,7 +35,7 @@ public final class LogConsoleStore: ObservableObject, LogEventSink, @unchecked S
     nonisolated public func receive(_ entry: LogEntry) {
         Task { [weak self] in
             guard let self else { return }
-            self.append(entry)
+            await self.append(entry)
         }
     }
 
