@@ -258,13 +258,15 @@ public struct LogConsoleView: View {
     }
 
     public var body: some View {
-        Group {
 #if os(macOS)
-            macOSBody
+        macOSBody
+#elseif os(iOS)
+        iOSBody
+#elseif os(tvOS)
+        tvOSBody
 #else
-            mobileBody
+        EmptyView()
 #endif
-        }
     }
 
 #if os(macOS)
@@ -299,8 +301,8 @@ public struct LogConsoleView: View {
     }
 #endif
 
-#if os(iOS) || os(tvOS)
-    private var mobileBody: some View {
+#if os(iOS)
+    private var iOSBody: some View {
         NavigationStack {
             logContent
                 .searchable(text: $searchText, prompt: "Search")
@@ -313,7 +315,7 @@ public struct LogConsoleView: View {
                         optionsMenu(exportString: exportText())
                             .persistingMenuIfAvailable()
                     }
-                    if #available(iOS 26, *){
+                    if #available(iOS 26, tvOS 26, *){
                         ToolbarSpacer(.flexible, placement: .bottomBar)
                         DefaultToolbarItem(kind: .search, placement: .bottomBar)
                         ToolbarSpacer(.fixed, placement: .bottomBar)
@@ -346,6 +348,83 @@ public struct LogConsoleView: View {
                 }
         }
         .background(backgroundColor)
+    }
+#endif
+
+#if os(tvOS)
+    private var tvOSBody: some View {
+        NavigationStack {
+            List {
+                Section("Display") {
+                    Toggle("Show Metadata", isOn: $showMetadata)
+                    Toggle("Show Timestamps", isOn: $showTimestamps)
+                    Toggle("Pause Updates", isOn: Binding(
+                        get: { pauseUpdates },
+                        set: { newValue in
+                            pauseUpdates = newValue
+                            if newValue {
+                                pausedEntries = store.entries
+                            } else {
+                                pausedEntries.removeAll(keepingCapacity: false)
+                            }
+                        }
+                    ))
+                }
+
+                Section("Filter") {
+                    Picker("Level", selection: Binding(
+                        get: { tvOSSelectedLevel },
+                        set: { newValue in
+                            tvOSSelectedLevel = newValue
+                        }
+                    )) {
+                        Text("All").tag(LogLevel?.none)
+                        ForEach(LogLevel.allCases, id: \.self) { level in
+                            Text(level.displayName).tag(LogLevel?.some(level))
+                        }
+                    }
+                }
+
+                Section("Entries") {
+                    ForEach(filteredEntries) { entry in
+                        entryRow(entry)
+                    }
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showClearConfirmation = true
+                    } label: {
+                        Label("Clear Entries", systemImage: "trash")
+                    }
+                    .confirmationDialog(
+                        "Clear log entries?",
+                        isPresented: $showClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Delete all entries", role: .destructive) {
+                            store.clear()
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
+                }
+            }
+            .navigationTitle("Logs")
+        }
+        .background(backgroundColor)
+    }
+
+    private var tvOSSelectedLevel: LogLevel? {
+        get {
+            selectedLevels.count == LogLevel.allCases.count ? nil : selectedLevels.sorted().first
+        }
+        nonmutating set {
+            if let level = newValue {
+                selectedLevels = Set(LogLevel.allCases.filter { $0 >= level })
+            } else {
+                selectedLevels = Set(LogLevel.allCases)
+            }
+        }
     }
 #endif
 
@@ -395,7 +474,7 @@ public struct LogConsoleView: View {
     private func copyVisibleEntries() {
         let text = exportText()
         guard !text.isEmpty else { return }
-#if canImport(UIKit)
+#if canImport(UIKit) && !os(tvOS)
         UIPasteboard.general.string = text
 #endif
 #if canImport(AppKit)
@@ -434,6 +513,7 @@ public struct LogConsoleView: View {
         colorScheme == .dark ? Color(red: 0.16, green: 0.16, blue: 0.19) : Color.white
     }
 
+#if os(macOS) || os(iOS)
     @ViewBuilder
     private func levelMenu() -> some View {
         Menu("Levels", systemImage: "line.3.horizontal.decrease.circle") {
@@ -489,13 +569,16 @@ public struct LogConsoleView: View {
                 Label("Copy Visible Entries", systemImage: "doc.on.doc")
             }
             .disabled(filteredEntries.isEmpty)
+            #if os(iOS) || os(macOS)
             if !exportString.isEmpty {
                 ShareLink(item: exportString) {
                     Label("Export…", systemImage: "square.and.arrow.up")
                 }
             }
+            #endif
         }
     }
+#endif
 
     private func toggle(_ level: LogLevel) {
         if selectedLevels.contains(level) {
@@ -591,11 +674,11 @@ private extension LogLevel {
     }
 }
 
-#if os(iOS) || os(tvOS)
+#if os(iOS)
 private extension View {
     @ViewBuilder
     func persistingMenuIfAvailable() -> some View {
-        if #available(iOS 16.4, tvOS 16.4, *) {
+        if #available(iOS 16.4, *) {
             self.menuActionDismissBehavior(.disabled)
         } else {
             self
