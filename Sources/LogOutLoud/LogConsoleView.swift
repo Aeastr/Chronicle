@@ -74,8 +74,12 @@ public struct LogConsolePanel: View {
 @available(watchOS 9.0, *)
 public struct LogConsoleView: View {
     @ObservedObject private var store: LogConsoleStore
-    @State private var showMetadata = true
     @State private var selectedLevel: LogLevel? = nil
+    @State private var showMetadata = true
+    @State private var showTimestamps = true
+    @State private var pauseUpdates = false
+    @State private var showClearConfirmation = false
+    @State private var pausedEntries: [LogEntry] = []
 
     public init(store: LogConsoleStore) {
         self._store = ObservedObject(wrappedValue: store)
@@ -84,8 +88,23 @@ public struct LogConsoleView: View {
     public var body: some View {
         NavigationStack {
             List {
-                Section {
+                Section("Display") {
                     Toggle("Show Metadata", isOn: $showMetadata)
+                    Toggle("Show Timestamps", isOn: $showTimestamps)
+                    Toggle("Pause Updates", isOn: Binding(
+                        get: { pauseUpdates },
+                        set: { newValue in
+                            pauseUpdates = newValue
+                            if newValue {
+                                pausedEntries = store.entries
+                            } else {
+                                pausedEntries.removeAll(keepingCapacity: false)
+                            }
+                        }
+                    ))
+                }
+
+                Section("Filter") {
                     Picker("Level", selection: $selectedLevel) {
                         Text("All").tag(LogLevel?.none)
                         ForEach(LogLevel.allCases, id: \.self) { level in
@@ -94,9 +113,27 @@ public struct LogConsoleView: View {
                     }
                 }
 
-                Section {
+                Section("Entries") {
                     ForEach(filteredEntries) { entry in
                         entryRow(entry)
+                    }
+                }
+
+                Section {
+                    Button(role: .destructive) {
+                        showClearConfirmation = true
+                    } label: {
+                        Label("Clear Entries", systemImage: "trash")
+                    }
+                    .confirmationDialog(
+                        "Clear log entries?",
+                        isPresented: $showClearConfirmation,
+                        titleVisibility: .visible
+                    ) {
+                        Button("Delete all entries", role: .destructive) {
+                            store.clear()
+                        }
+                        Button("Cancel", role: .cancel) {}
                     }
                 }
             }
@@ -105,8 +142,9 @@ public struct LogConsoleView: View {
     }
 
     private var filteredEntries: [LogEntry] {
-        guard let selectedLevel else { return store.entries }
-        return store.entries.filter { $0.level >= selectedLevel }
+        let base = pauseUpdates ? pausedEntries : store.entries
+        guard let selectedLevel else { return base }
+        return base.filter { $0.level >= selectedLevel }
     }
 
     @ViewBuilder
@@ -116,6 +154,12 @@ public struct LogConsoleView: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundStyle(levelColor(for: entry.level))
+
+            if showTimestamps {
+                Text(Self.timestampFormatter.string(from: entry.timestamp))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
 
             Text(entry.taggedMessage)
                 .font(.footnote)
@@ -139,6 +183,14 @@ public struct LogConsoleView: View {
         case .fault: return .red
         }
     }
+
+    private static let timestampFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        formatter.locale = Locale.current
+        return formatter
+    }()
 }
 
 #else
@@ -249,41 +301,46 @@ public struct LogConsoleView: View {
         NavigationView {
             logContent
                 .searchable(text: $searchText, prompt: "Search")
-        }
-        .toolbar {
-            ToolbarItem(placement: .bottomBar) {
-                levelMenu()
-                    .persistingMenuIfAvailable()
-            }
-            ToolbarItem(placement: .navigation) {
-                optionsMenu(exportString: exportText())
-                    .persistingMenuIfAvailable()
-            }
-            ToolbarItem(placement: .bottomBar) {
-                Button(role: .destructive) {
-                    showClearConfirmation = true
-                } label: {
-                    Label("Clear", systemImage: "trash")
-                }
-                .tint(.red)
-                .confirmationDialog(
-                    "Clear log entries?",
-                    isPresented: $showClearConfirmation,
-                    titleVisibility: .visible
-                ) {
-                    Button("Delete all entries", role: .destructive) {
-                        store.clear()
+                .toolbar {
+                    ToolbarItem(placement: .bottomBar) {
+                        levelMenu()
+                            .persistingMenuIfAvailable()
                     }
-                    Button("Cancel", role: .cancel) {}
+                    ToolbarItem(placement: .navigation) {
+                        optionsMenu(exportString: exportText())
+                            .persistingMenuIfAvailable()
+                    }
+                    if #available(iOS 26, *){
+                        ToolbarSpacer(.flexible, placement: .bottomBar)
+                        DefaultToolbarItem(kind: .search, placement: .bottomBar)
+                        ToolbarSpacer(.fixed, placement: .bottomBar)
+                    }
+                    ToolbarItem(placement: .bottomBar) {
+                        Button(role: .destructive) {
+                            showClearConfirmation = true
+                        } label: {
+                            Label("Clear", systemImage: "trash")
+                        }
+                        .tint(.red)
+                        .confirmationDialog(
+                            "Clear log entries?",
+                            isPresented: $showClearConfirmation,
+                            titleVisibility: .visible
+                        ) {
+                            Button("Delete all entries", role: .destructive) {
+                                store.clear()
+                            }
+                            Button("Cancel", role: .cancel) {}
+                        }
+                    }
+                    ToolbarItem(placement: .automatic) {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Label("Close", systemImage: "xmark")
+                        }
+                    }
                 }
-            }
-            ToolbarItem(placement: .automatic) {
-                Button {
-                    dismiss()
-                } label: {
-                    Label("Close", systemImage: "xmark")
-                }
-            }
         }
         .background(backgroundColor)
     }
