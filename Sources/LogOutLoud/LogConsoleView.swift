@@ -77,7 +77,7 @@ public struct LogConsolePanel: View {
 @available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
 public struct LogConsoleView: View {
     @ObservedObject private var store: LogConsoleStore
-
+    @Environment(\.dismiss) var dismiss
     @State private var selectedLevels: Set<LogLevel> = Set(LogLevel.allCases)
     @State private var searchText = ""
     @State private var autoScroll = true
@@ -87,35 +87,38 @@ public struct LogConsoleView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            controlBar
-            Divider()
-            logContent
-        }
-        .background(PlatformColor.background)
-    }
-
-    private var controlBar: some View {
-        HStack(spacing: 12) {
-            levelMenu
-
-            searchField
-
-            Toggle("Auto-Scroll", isOn: $autoScroll)
-                .frame(maxWidth: 160)
-
-            Spacer()
-
-            Button {
-                store.clear()
-            } label: {
-                Label("Clear", systemImage: "trash")
+        NavigationView{
+            VStack(spacing: 0) {
+                logContent
             }
-            .buttonStyle(.bordered)
+            .searchable(text: $searchText, prompt: "Search")
+            .toolbar{
+                ToolbarItem(placement: .navigation) {
+                    levelMenu
+                }
+                ToolbarItem(placement: .navigation) {
+                    Menu("Options", systemImage: "ellipsis") {
+                        Toggle("Auto-Scroll", isOn: $autoScroll)
+                    }
+                }
+                ToolbarItem(placement: .automatic) {
+                    Button(role: .destructive) {
+                        store.clear()
+                    } label: {
+                        Label("Clear", systemImage: "trash")
+                    }
+                    .tint(.red)
+                }
+                ToolbarItem(placement: .automatic) {
+                    Button("", systemImage: "xmark") {
+                        dismiss()
+                    }
+                }
+            }
+            .background(PlatformColor.background)
         }
-        .padding(12)
-        .background(.thinMaterial)
     }
+
 
     private var logContent: some View {
         ScrollViewReader { proxy in
@@ -176,22 +179,6 @@ public struct LogConsoleView: View {
         } label: {
             Label("Levels", systemImage: "line.3.horizontal.decrease.circle")
         }
-    }
-
-    private var searchField: some View {
-        HStack {
-            Image(systemName: "magnifyingglass")
-                .foregroundColor(.secondary)
-            TextField("Search", text: $searchText)
-                .textFieldStyle(PlainTextFieldStyle())
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.secondary.opacity(0.25))
-        )
-        .frame(maxWidth: 240)
     }
 
     private func toggle(_ level: LogLevel) {
@@ -310,3 +297,69 @@ private enum PlatformColor {
         #endif
     }
 }
+
+#if DEBUG && canImport(SwiftUI)
+@available(iOS 15.0, macOS 12.0, tvOS 15.0, *)
+struct LogConsolePanel_Previews: PreviewProvider {
+    @MainActor
+    static func makeStore() -> LogConsoleStore {
+        let store = LogConsoleStore(maxEntries: 200)
+
+        let samples: [LogEntry] = {
+            let lifecycleMetadata: LogMetadata = [
+                "mode": .string("debug"),
+                "version": .string("1.0.0")
+            ]
+            let networkMetadata: LogMetadata = ["latency_ms": .integer(850)]
+            let parsingMetadata: LogMetadata = [
+                "status": .integer(500),
+                "endpoint": .string("/v1/profile"),
+                "retry": .bool(false)
+            ]
+
+            let lifecycleEntry = LogEntry(
+                level: .info,
+                message: "Application initialised",
+                tags: [Tag("Lifecycle")],
+                metadata: lifecycleMetadata,
+                renderedMetadata: LogMetadataValue.dictionary(lifecycleMetadata).description,
+                subsystem: "world.aethers.preview",
+                category: "default",
+                source: .init(file: "App.swift", function: "init()", line: 12)
+            )
+
+            let networkEntry = LogEntry(
+                level: .warning,
+                message: "Slow network response",
+                tags: [Tag("Network")],
+                metadata: networkMetadata,
+                renderedMetadata: LogMetadataValue.dictionary(networkMetadata).description,
+                subsystem: "world.aethers.preview",
+                category: "default",
+                source: .init(file: "NetworkClient.swift", function: "fetch()", line: 88)
+            )
+
+            let parsingEntry = LogEntry(
+                level: .error,
+                message: "Failed to decode payload",
+                tags: [Tag("Parsing"), Tag("API")],
+                metadata: parsingMetadata,
+                renderedMetadata: LogMetadataValue.dictionary(parsingMetadata).description,
+                subsystem: "world.aethers.preview",
+                category: "default",
+                source: .init(file: "ProfileService.swift", function: "loadProfile()", line: 132)
+            )
+
+            return [lifecycleEntry, networkEntry, parsingEntry]
+        }()
+
+        samples.forEach { store.append($0) }
+        return store
+    }
+
+    static var previews: some View {
+        LogConsolePanel()
+            .logConsole(makeStore())
+    }
+}
+#endif
