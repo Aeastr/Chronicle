@@ -52,3 +52,24 @@ public enum LogLevel: Int, CaseIterable, Comparable {
         lhs.rawValue < rhs.rawValue
     }
 }
+
+@available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *)
+extension LogLevel {
+    /// Maps our ``LogLevel`` to Apple's modern `os.Logger.Level` enumeration.
+    var osLoggerLevel: os.Logger.Level {
+        switch self {
+        case .debug:
+            return .debug
+        case .info:
+            return .info
+        case .notice:
+            return .notice
+        case .warning:
+            return .warning
+        case .error:
+            return .error
+        case .fault:
+            return .fault
+        }
+    }
+}
