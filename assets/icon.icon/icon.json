@@ -24,8 +24,11 @@
         },
         {
           "blend-mode" : "multiply",
+          "fill" : {
+            "solid" : "display-p3:1.00000,1.00000,1.00000,1.00000"
+          },
           "glass" : false,
-          "hidden" : true,
+          "hidden" : false,
           "image-name" : "Scanlines.svg",
           "name" : "Scanlines",
           "opacity" : 0.1
@@ -56,6 +59,7 @@
           "fill" : {
             "solid" : "extended-gray:1.00000,1.00000"
           },
+          "hidden" : true,
           "image-name" : "Grid.png",
           "name" : "Grid",
           "opacity" : 0.25,
