@@ -118,7 +118,7 @@ public final class Logger: @unchecked Sendable {
 
     /// Mutates the existing output options.
     public func updateOutputOptions(_ mutation: @Sendable (inout LogOutputOptions) -> Void) {
-        queue.async(flags: .barrier) {
+        queue.sync(flags: .barrier) {
             mutation(&self.outputOptions)
         }
     }
