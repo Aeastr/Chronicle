@@ -172,6 +172,53 @@ extension LogMetadataValue {
     }
 }
 
+// MARK: - Human-readable helpers
+
+extension LogMetadataValue {
+    var humanReadableDescription: String {
+        switch self {
+        case .string(let value):
+            return value
+        case .integer(let value):
+            return String(value)
+        case .double(let value):
+            return value.cleanDescription
+        case .bool(let value):
+            return value ? "true" : "false"
+        case .array(let values):
+            guard !values.isEmpty else { return "[]" }
+            let contents = values.map { $0.humanReadableDescription }.joined(separator: ", ")
+            return "[\(contents)]"
+        case .dictionary(let dictionary):
+            guard !dictionary.isEmpty else { return "{}" }
+            let contents = dictionary
+                .sorted { $0.key < $1.key }
+                .map { key, value in
+                    "\(key)=\(value.humanReadableDescription)"
+                }
+                .joined(separator: ", ")
+            return "{\(contents)}"
+        case .null:
+            return "null"
+        }
+    }
+
+    var stringValue: String? {
+        if case .string(let value) = self { return value }
+        return nil
+    }
+
+    var integerValue: Int? {
+        if case .integer(let value) = self { return value }
+        return nil
+    }
+
+    var dictionaryValue: [String: LogMetadataValue]? {
+        if case .dictionary(let dictionary) = self { return dictionary }
+        return nil
+    }
+}
+
 private extension Double {
     /// Trims trailing zeros while preserving decimal output for integers.
     var cleanDescription: String {

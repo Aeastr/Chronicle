@@ -150,6 +150,23 @@ public enum LogMetadataValue: Sendable, CustomStringConvertible {
 
 Use `LogMetadataValue` (or its literal conformances) to build structured metadata payloads that render as JSON-like strings.
 
+### LogOutputOptions
+
+```swift
+var options = Logger.shared.currentOutputOptions
+options.showMetadata = false
+options.metadataFormat = .json
+options.metadataKeyPolicy = .include(["scenePhase", "debugOverlays"])
+Logger.shared.setOutputOptions(options)
+
+Logger.shared.updateOutputOptions { options in
+    options.showMetadata = true
+    options.showSource = false
+}
+```
+
+`LogOutputOptions` lets you configure how metadata is rendered alongside each log line (pretty key-value strings, JSON blobs, or entirely hidden) and which keys should appear.
+
 ### Logger
 
 ```swift

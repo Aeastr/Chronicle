@@ -61,6 +61,7 @@ public final class Logger: @unchecked Sendable {
     /// The subsystem used by `OSLog` (defaults to your bundle identifier or "LogKit").
     public var subsystem: String
     private var allowedLevels: Set<LogLevel>
+    private var outputOptions: LogOutputOptions
     private let category: String
     private let osLog: OSLog
     private let modernLogger: Any?
@@ -85,6 +86,7 @@ public final class Logger: @unchecked Sendable {
     public init(subsystem: String = Bundle.main.bundleIdentifier ?? "LogKit") {
         self.subsystem = subsystem
         self.allowedLevels = Set(LogLevel.allCases)
+        self.outputOptions = .default
         self.category = "default"
         self.osLog = OSLog(subsystem: subsystem, category: category)
         if #available(iOS 14.0, macOS 11.0, tvOS 14.0, watchOS 7.0, *) {
@@ -105,6 +107,25 @@ public final class Logger: @unchecked Sendable {
         queue.async(flags: .barrier) {
             self.allowedLevels = levels
         }
+    }
+
+    /// Configures how metadata is rendered for the log output string.
+    public func setOutputOptions(_ options: LogOutputOptions) {
+        queue.async(flags: .barrier) {
+            self.outputOptions = options
+        }
+    }
+
+    /// Mutates the existing output options.
+    public func updateOutputOptions(_ mutation: @Sendable (inout LogOutputOptions) -> Void) {
+        queue.async(flags: .barrier) {
+            mutation(&self.outputOptions)
+        }
+    }
+
+    /// Returns the current output options.
+    public var currentOutputOptions: LogOutputOptions {
+        queue.sync { outputOptions }
     }
     
     /// Logs a message if its level is allowed.
@@ -134,12 +155,14 @@ public final class Logger: @unchecked Sendable {
             }
 
             let resolvedMessage = message()
+            let options = self.outputOptions
             let metadataPackage = metadataPackage(
                 metadata: metadata,
                 tags: tags,
                 file: file,
                 function: function,
-                line: line
+                line: line,
+                options: options
             )
 
             let logLine = composeLogLine(
@@ -199,12 +222,14 @@ public final class Logger: @unchecked Sendable {
                 return []
             }
 
+            let options = self.outputOptions
             let metadataPackage = metadataPackage(
                 metadata: metadata,
                 tags: tags,
                 file: file,
                 function: function,
-                line: line
+                line: line,
+                options: options
             )
             let tagPrefix = formatTags(tags)
             let sinks = Array(eventSinks.values)
@@ -338,7 +363,8 @@ public final class Logger: @unchecked Sendable {
         tags: [Tag],
         file: String,
         function: String,
-        line: Int
+        line: Int,
+        options: LogOutputOptions
     ) -> MetadataPackage {
         var structured: LogMetadata = metadata.reduce(into: [:]) { partialResult, element in
             partialResult[element.key] = LogMetadataValue.fromAny(element.value)
@@ -365,7 +391,7 @@ public final class Logger: @unchecked Sendable {
             return MetadataPackage(structured: nil, rendered: nil)
         }
 
-        let rendered = LogMetadataValue.dictionary(structured).description
+        let rendered = renderMetadataLine(from: structured, options: options)
         return MetadataPackage(structured: structured, rendered: rendered)
     }
 
@@ -390,6 +416,82 @@ public final class Logger: @unchecked Sendable {
         return components.joined(separator: " | ")
     }
 
+    private func renderMetadataLine(from metadata: LogMetadata, options: LogOutputOptions) -> String? {
+        guard options.showMetadata else { return nil }
+
+        func allowsKey(_ key: String) -> Bool {
+            options.metadataKeyPolicy.allows(key)
+        }
+
+        switch options.metadataFormat {
+        case .pretty:
+            var components: [String] = []
+
+            if options.showSubsystem,
+               allowsKey("_subsystem"),
+               let subsystem = metadata["_subsystem"]?.stringValue,
+               !subsystem.isEmpty {
+                components.append("subsystem=\(subsystem)")
+            }
+
+            if options.showSource,
+               allowsKey("_source"),
+               let source = metadata["_source"]?.dictionaryValue {
+                var parts: [String] = []
+                if let file = source["file"]?.stringValue, !file.isEmpty {
+                    if let line = source["line"]?.integerValue {
+                        parts.append("\(file):\(line)")
+                    } else {
+                        parts.append(file)
+                    }
+                }
+                if let function = source["function"]?.stringValue, !function.isEmpty {
+                    parts.append(function)
+                }
+                if !parts.isEmpty {
+                    components.append("source=\(parts.joined(separator: " · "))")
+                }
+            }
+
+            let reservedKeys: Set<String> = ["_source", "_subsystem"]
+            let additionalKeys = metadata.keys
+                .filter { !reservedKeys.contains($0) && allowsKey($0) }
+                .sorted()
+
+            for key in additionalKeys {
+                guard let value = metadata[key] else { continue }
+                components.append("\(key)=\(value.humanReadableDescription)")
+            }
+
+            return components.isEmpty ? nil : components.joined(separator: " · ")
+
+        case .json:
+            var payload: [String: LogMetadataValue] = [:]
+
+            if options.showSubsystem,
+               allowsKey("_subsystem"),
+               let subsystem = metadata["_subsystem"],
+               !(subsystem.stringValue?.isEmpty ?? true) {
+                payload["_subsystem"] = subsystem
+            }
+
+            if options.showSource,
+               allowsKey("_source"),
+               let source = metadata["_source"] {
+                payload["_source"] = source
+            }
+
+            for (key, value) in metadata {
+                guard key != "_subsystem", key != "_source" else { continue }
+                guard allowsKey(key) else { continue }
+                payload[key] = value
+            }
+
+            guard !payload.isEmpty else { return nil }
+            return LogMetadataValue.dictionary(payload).description
+        }
+    }
+
 #if canImport(os.signpost)
     @available(iOS 12.0, macOS 10.14, tvOS 12.0, watchOS 5.0, *)
     @discardableResult
@@ -404,12 +506,14 @@ public final class Logger: @unchecked Sendable {
         message: @autoclosure () -> String = ""
     ) -> OSSignpostID {
         let signpostID = id ?? OSSignpostID(log: osLog)
+        let options = currentOutputOptions
         let metadataPackage = metadataPackage(
             metadata: metadata,
             tags: tags,
             file: file,
             function: function,
-            line: line
+            line: line,
+            options: options
         )
         let payload = composeLogLine(
             message: message(),
@@ -432,6 +536,7 @@ public final class Logger: @unchecked Sendable {
         line: Int = #line,
         message: @autoclosure () -> String = ""
     ) {
+        let options = currentOutputOptions
         let payload = composeLogLine(
             message: message(),
             tagPrefix: formatTags(tags),
@@ -440,7 +545,8 @@ public final class Logger: @unchecked Sendable {
                 tags: tags,
                 file: file,
                 function: function,
-                line: line
+                line: line,
+                options: options
             ).rendered
         )
 
@@ -460,12 +566,14 @@ public final class Logger: @unchecked Sendable {
         message: @autoclosure () -> String = ""
     ) -> OSSignpostID {
         let signpostID = id ?? OSSignpostID(log: osLog)
+        let options = currentOutputOptions
         let metadataPackage = metadataPackage(
             metadata: metadata,
             tags: tags,
             file: file,
             function: function,
-            line: line
+            line: line,
+            options: options
         )
         let payload = composeLogLine(
             message: message(),
