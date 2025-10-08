@@ -97,6 +97,7 @@ public struct LogConsoleView: View {
                         } label: {
                             Label("Clear Entries", systemImage: "trash")
                         }
+                        .tint(.red)
                         .confirmationDialog(
                             "Clear log entries?",
                             isPresented: $showClearConfirmation,

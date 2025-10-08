@@ -398,6 +398,15 @@ Prefer to build your own UI? Inject the `LogConsoleStore` manually and read its 
 
 ---
 
+## Examples
+
+- `Sources/Examples/SingleLoggerExample.swift`: Minimal SwiftUI list wired to `Logger.shared`, demonstrating how to present the in-app console for a single instance.
+- `Sources/Examples/MultiLoggerExample.swift`: Shows two named loggers plus the shared logger feeding the same `LogConsoleStore`, so the console view aggregates multiple sources.
+
+All examples target iOS 16+ and use the convenience environment modifiers provided by LogOutLoud.
+
+---
+
 ## Why LogOutLoud?
 
 - **Less boilerplate** than raw `os_log` calls  
