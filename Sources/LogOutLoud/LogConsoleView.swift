@@ -175,6 +175,10 @@ public struct LogConsoleView: View {
             Text(entry.taggedMessage)
                 .font(.footnote)
 
+            Text(originDescription(for: entry))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             if showMetadata, let metadata = entry.renderedMetadata {
                 Text(metadata)
                     .font(.caption2)
@@ -202,6 +206,14 @@ public struct LogConsoleView: View {
         formatter.locale = Locale.current
         return formatter
     }()
+
+    private func originDescription(for entry: LogEntry) -> String {
+        let fileLocation = "\(entry.source.file):\(entry.source.line)"
+        guard !entry.subsystem.isEmpty else {
+            return fileLocation
+        }
+        return "\(entry.subsystem) · \(fileLocation)"
+    }
 }
 
 #else
@@ -493,6 +505,7 @@ public struct LogConsoleView: View {
         }
 
         components.append(entry.level.displayName)
+        components.append(originDescription(for: entry))
         components.append(entry.taggedMessage)
 
         if showMetadata, let metadata = entry.renderedMetadata {
@@ -591,7 +604,7 @@ public struct LogConsoleView: View {
 
     @ViewBuilder
     private func entryRow(_ entry: LogEntry) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
                 if showTimestamps {
                     Text(Self.timestampFormatter.string(from: entry.timestamp))
@@ -605,11 +618,15 @@ public struct LogConsoleView: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(levelColor(for: entry.level))
 
-                Spacer()
+                if !entry.subsystem.isEmpty {
+                    Text(entry.subsystem)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
 
-                Text("\(entry.source.file):\(entry.source.line)")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                Spacer()
             }
 
             Text(entry.taggedMessage)
@@ -618,6 +635,10 @@ public struct LogConsoleView: View {
 #if os(iOS) || os(macOS)
                 .textSelection(.enabled)
 #endif
+
+            Text(originDescription(for: entry))
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.secondary)
 
             if showMetadata, let metadata = entry.renderedMetadata {
                 Text(metadata)
@@ -659,6 +680,14 @@ public struct LogConsoleView: View {
         formatter.locale = Locale.current
         return formatter
     }()
+
+    private func originDescription(for entry: LogEntry) -> String {
+        let location = "\(entry.source.file):\(entry.source.line)"
+        guard !entry.subsystem.isEmpty else {
+            return location
+        }
+        return "\(entry.subsystem) · \(location)"
+    }
 }
 #endif
 
