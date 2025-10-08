@@ -2,8 +2,7 @@
   <img width="270" height="270" src="/assets/icon.png" alt="LogOutLoud Logo">
   <h1><b>LogOutLoud</b></h1>
   <p>
-    A lightweight Swift logging package that wraps Apple’s Unified Logging
-    (`os_log`)
+   advanced logging wrapper for Apple's unified logging with async, structured metadata, runtime details and more
     <br>
     <i>Core logging supports iOS 13 / macOS 10.15 / tvOS 13 / watchOS 6+, SwiftUI console targets iOS 16 / macOS 13 / tvOS 16+ / watchOS 9+</i>
   </p>
