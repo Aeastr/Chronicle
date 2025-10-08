@@ -7,6 +7,7 @@
 
 import Combine
 import Foundation
+import LogOutLoud
 
 /// In-memory buffer of recent ``LogEntry`` values suitable for displaying in a UI console.
 @MainActor

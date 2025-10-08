@@ -90,12 +90,23 @@ You can add `LogOutLoud` to your project using Swift Package Manager.
 2.  Enter the repository URL: `https://github.com/aeastr/LogOutLoud.git`
 3.  Choose the `main` branch or the latest version tag.
 4.  Add the `LogOutLoud` library to your app target.
+5.  (Optional) Add the `LogOutLoudConsole` library to any SwiftUI target that should ship the in-app console.
 
 Alternatively, add it to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-.package(url: "https://github.com/aeastr/LogOutLoud.git", from: "1.0.0") 
+    .package(url: "https://github.com/aeastr/LogOutLoud.git", from: "1.0.0")
+]
+
+targets: [
+    .target(
+        name: "App",
+        dependencies: [
+            .product(name: "LogOutLoud", package: "LogOutLoud"),
+            .product(name: "LogOutLoudConsole", package: "LogOutLoud") // optional console UI
+        ]
+    )
 ]
 ```
 
@@ -354,10 +365,12 @@ Need an on-device console for QA or support builds? LogOutLoud can mirror every 
 
 ### Enable the console
 
-Opt-in so there is zero overhead when you do not need UI logging:
+Opt-in so there is zero overhead when you do not need UI logging (make sure the target imports `LogOutLoudConsole`):
 
 ```swift
 // Typically in your App or setup code
+import LogOutLoudConsole
+
 let consoleStore = Logger.shared.enableConsole(maxEntries: 1_000)
 ```
 
@@ -400,10 +413,10 @@ Prefer to build your own UI? Inject the `LogConsoleStore` manually and read its 
 
 ## Examples
 
-- `Sources/Examples/SingleLoggerExample.swift`: Minimal SwiftUI list wired to `Logger.shared`, demonstrating how to present the in-app console for a single instance.
-- `Sources/Examples/MultiLoggerExample.swift`: Shows two named loggers plus the shared logger feeding the same `LogConsoleStore`, so the console view aggregates multiple sources.
+- `Sources/LogOutLoudExamples/SingleLoggerExample.swift`: Minimal SwiftUI list wired to `Logger.shared`, demonstrating how to present the in-app console for a single instance.
+- `Sources/LogOutLoudExamples/MultiLoggerExample.swift`: Shows two named loggers plus the shared logger feeding the same `LogConsoleStore`, so the console view aggregates multiple sources.
 
-All examples target iOS 16+ and use the convenience environment modifiers provided by LogOutLoud.
+The `LogOutLoudExamples` library links both `LogOutLoud` and `LogOutLoudConsole`, so you can embed these previews in your own sample targets or UI prototyping apps.
 
 ---
 

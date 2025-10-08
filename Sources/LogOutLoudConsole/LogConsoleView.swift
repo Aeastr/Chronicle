@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import LogOutLoud
 
 private struct LogConsoleStoreKey: EnvironmentKey {
     static let defaultValue: LogConsoleStore? = nil

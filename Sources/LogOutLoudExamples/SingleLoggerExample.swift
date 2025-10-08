@@ -9,6 +9,7 @@
 
 import SwiftUI
 import LogOutLoud
+import LogOutLoudConsole
 
 private extension Tag {
     static let ui = Tag("UI")

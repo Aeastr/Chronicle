@@ -14,6 +14,14 @@ let package = Package(
         .library(
             name: "LogOutLoud",
             targets: ["LogOutLoud"]
+        ),
+        .library(
+            name: "LogOutLoudConsole",
+            targets: ["LogOutLoudConsole"]
+        ),
+        .library(
+            name: "LogOutLoudExamples",
+            targets: ["LogOutLoudExamples"]
         )
     ],
     dependencies: [
@@ -24,6 +32,19 @@ let package = Package(
             name: "LogOutLoud",
             dependencies: [
                 .product(name: "Logging", package: "swift-log")
+            ]
+        ),
+        .target(
+            name: "LogOutLoudConsole",
+            dependencies: [
+                "LogOutLoud"
+            ]
+        ),
+        .target(
+            name: "LogOutLoudExamples",
+            dependencies: [
+                "LogOutLoud",
+                "LogOutLoudConsole"
             ]
         )
     ]

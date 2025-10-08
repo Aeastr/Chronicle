@@ -70,13 +70,6 @@ public final class Logger: @unchecked Sendable {
     )
     private var eventSinks: [UUID: AnyLogEventSink] = [:]
 
-    private struct ConsoleConfiguration {
-        let store: LogConsoleStore
-        let token: LogEventSinkToken
-    }
-
-    private var consoleConfiguration: ConsoleConfiguration?
-
     private struct LogDispatch {
         let payload: String
         let entry: LogEntry
@@ -303,36 +296,6 @@ public final class Logger: @unchecked Sendable {
         queue.sync(flags: .barrier) {
             eventSinks.removeValue(forKey: token.rawValue)
         }
-    }
-
-    @MainActor
-    @discardableResult
-    public func enableConsole(maxEntries: Int = LogConsoleStore.defaultMaxEntries) -> LogConsoleStore {
-        if let configuration = queue.sync(execute: { consoleConfiguration }) {
-            configuration.store.updateMaxEntries(maxEntries)
-            return configuration.store
-        }
-
-        let store = LogConsoleStore(maxEntries: maxEntries)
-        let token = addEventSink(store)
-        queue.sync(flags: .barrier) {
-            consoleConfiguration = ConsoleConfiguration(store: store, token: token)
-        }
-        return store
-    }
-
-    @MainActor
-    public func disableConsole() {
-        guard let configuration = queue.sync(execute: { consoleConfiguration }) else { return }
-        removeEventSink(configuration.token)
-        queue.sync(flags: .barrier) {
-            consoleConfiguration = nil
-        }
-    }
-
-    @MainActor
-    public var consoleStore: LogConsoleStore? {
-        queue.sync { consoleConfiguration?.store }
     }
 
     private func send(_ logMessage: String, level: LogLevel) {
