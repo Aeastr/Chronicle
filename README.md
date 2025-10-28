@@ -1,5 +1,5 @@
 <div align="center">
-  <img width="270" height="270" src="/assets/icon.png" alt="LogOutLoud Logo">
+  <img width="200" height="200" src="/assets/icon.png" alt="LogOutLoud Logo">
   <h1><b>LogOutLoud</b></h1>
   <p>
    advanced logging wrapper for Apple's unified logging with async, structured metadata, runtime details and more
