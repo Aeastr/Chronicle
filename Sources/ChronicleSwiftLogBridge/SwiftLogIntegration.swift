@@ -1,15 +1,16 @@
 //
 //  SwiftLogIntegration.swift
-//  LogOutLoud
+//  Chronicle
 //
 //  Created by Codex on 24/04/2025.
 //
 
 import Foundation
 import Logging
+import Chronicle
 
-/// A `swift-log` compatible handler that forwards messages into `LogOutLoud`.
-public struct LogOutLoudLogHandler: LogHandler {
+/// A `swift-log` compatible handler that forwards messages into `Chronicle`.
+public struct ChronicleLogHandler: LogHandler {
     private var backend: Logger
     public var metadata: Logging.Logger.Metadata
     public var logLevel: Logging.Logger.Level {
@@ -71,10 +72,10 @@ public struct LogOutLoudLogHandler: LogHandler {
 }
 
 public extension LoggingSystem {
-    /// Boots the global `LoggingSystem` using `LogOutLoud` under the hood.
-    static func bootstrapLogOutLoud(defaultLogLevel: Logging.Logger.Level = .info) {
+    /// Boots the global `LoggingSystem` using `Chronicle` under the hood.
+    static func bootstrapChronicle(defaultLogLevel: Logging.Logger.Level = .info) {
         bootstrap { label in
-            var handler = LogOutLoudLogHandler(label: label)
+            var handler = ChronicleLogHandler(label: label)
             handler.logLevel = defaultLogLevel
             return handler
         }

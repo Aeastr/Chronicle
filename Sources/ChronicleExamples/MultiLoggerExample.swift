@@ -8,8 +8,8 @@
 #if os(iOS)
 
 import SwiftUI
-import LogOutLoud
-import LogOutLoudConsole
+import Chronicle
+import ChronicleConsole
 
 private extension Tag {
     static let network = Tag("Network")
