@@ -3,7 +3,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "LogOutLoud",
+    name: "Chronicle",
     platforms: [
         .iOS(.v13),
         .macOS(.v11),
@@ -12,16 +12,20 @@ let package = Package(
     ],
     products: [
         .library(
-            name: "LogOutLoud",
-            targets: ["LogOutLoud"]
+            name: "Chronicle",
+            targets: ["Chronicle"]
         ),
         .library(
-            name: "LogOutLoudConsole",
-            targets: ["LogOutLoudConsole"]
+            name: "ChronicleConsole",
+            targets: ["ChronicleConsole"]
         ),
         .library(
-            name: "LogOutLoudExamples",
-            targets: ["LogOutLoudExamples"]
+            name: "ChronicleSwiftLogBridge",
+            targets: ["ChronicleSwiftLogBridge"]
+        ),
+        .library(
+            name: "ChronicleExamples",
+            targets: ["ChronicleExamples"]
         )
     ],
     dependencies: [
@@ -29,22 +33,27 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "LogOutLoud",
+            name: "Chronicle",
+            dependencies: []
+        ),
+        .target(
+            name: "ChronicleConsole",
             dependencies: [
+                "Chronicle"
+            ]
+        ),
+        .target(
+            name: "ChronicleSwiftLogBridge",
+            dependencies: [
+                "Chronicle",
                 .product(name: "Logging", package: "swift-log")
             ]
         ),
         .target(
-            name: "LogOutLoudConsole",
+            name: "ChronicleExamples",
             dependencies: [
-                "LogOutLoud"
-            ]
-        ),
-        .target(
-            name: "LogOutLoudExamples",
-            dependencies: [
-                "LogOutLoud",
-                "LogOutLoudConsole"
+                "Chronicle",
+                "ChronicleConsole"
             ]
         )
     ]

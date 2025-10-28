@@ -1,4 +1,4 @@
-# Contributing to LogOutLoud
+# Contributing to Chronicle
 
 ## Code of Conduct
 
@@ -7,10 +7,10 @@ Please read and follow the [Code of Conduct](./CODE_OF_CONDUCT.md). I’m commit
 ## How to Report Issues
 
 Before opening a new issue, search existing issues to avoid duplicates. When filing a bug report, please include:
-- LogOutLoud version (e.g. `1.0.0`) and your Swift/Xcode versions  
-- Target platform (iOS 15.0+), device or simulator  
-- A concise description of the problem and steps to reproduce  
-- Minimal code snippet or sample project demonstrating the issue  
+- Chronicle version (e.g. `1.0.0`) and your Swift/Xcode versions
+- Target platform (iOS 13+), device or simulator
+- A concise description of the problem and steps to reproduce
+- Minimal code snippet or sample project demonstrating the issue
 - Any relevant console logs or screenshots
 
 ## How to Propose Features
@@ -26,8 +26,8 @@ If you have an idea for a new feature or enhancement:
 
 1. Fork the repo and clone locally:
    ```bash
-   git clone https://github.com/aeastr/LogOutLoud.git
-   cd LogOutLoud
+   git clone https://github.com/aeastr/Chronicle.git
+   cd Chronicle
    ```
 2. Create a feature branch:
    ```bash
@@ -44,17 +44,17 @@ If you have an idea for a new feature or enhancement:
 
 ## Development Setup
 
-- Xcode 15 or later  
-- iOS 15.0+ deployment target  
-- Clone & open `LogOutLoud.xcodeproj` or use the Swift Package in your own project
+- Xcode 15 or later
+- iOS 13+ deployment target
+- Clone & open the Swift Package in your own project
 
 ## Coding Guidelines
 
-- Use idiomatic Swift & SwiftUI conventions  
-- Structure code for readability and reuse  
-- Keep public APIs minimal and well-documented  
-- If you introduce new API, add samples under `Sources/LogOutLoud/Examples`  
-- Format your code with `swift-format` or Xcode’s built-in formatter  
+- Use idiomatic Swift & SwiftUI conventions
+- Structure code for readability and reuse
+- Keep public APIs minimal and well-documented
+- If you introduce new API, add samples under `Sources/ChronicleExamples`
+- Format your code with `swift-format` or Xcode's built-in formatter
 - Write unit tests _where applicable_
 
 ## Documentation
@@ -85,4 +85,4 @@ By contributing, you agree that your contributions will be licensed under the MI
 
 ---
 
-Thank you for helping make LogOutLoud even more magical! 🚀
+Thank you for helping make Chronicle even more magical! 🚀

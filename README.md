@@ -1,6 +1,6 @@
 <div align="center">
-  <img width="200" height="200" src="/assets/icon.png" alt="LogOutLoud Logo">
-  <h1><b>LogOutLoud</b></h1>
+  <img width="200" height="200" src="/assets/icon.png" alt="Chronicle Logo">
+  <h1><b>Chronicle</b></h1>
   <p>
    advanced logging wrapper for Apple's unified logging with async, structured metadata, runtime details and more
     <br>
@@ -45,7 +45,7 @@
 
 ## Multiple Shared Logger Instances
 
-By default, `Logger.shared` is a singleton used across your app and any packages that import LogOutLoud. 
+By default, `Logger.shared` is a singleton used across your app and any packages that import Chronicle. 
 
 **However, you can now create and access multiple shared logger instances, each with their own configuration, using a registry pattern:**
 
@@ -83,27 +83,28 @@ networkLogger.log("Network error", level: .error)
 
 ## Installation
 
-You can add `LogOutLoud` to your project using Swift Package Manager.
+You can add `Chronicle` to your project using Swift Package Manager.
 
 1.  In Xcode, select **File** > **Add Packages...**
-2.  Enter the repository URL: `https://github.com/aeastr/LogOutLoud.git`
+2.  Enter the repository URL: `https://github.com/aeastr/Chronicle.git`
 3.  Choose the `main` branch or the latest version tag.
-4.  Add the `LogOutLoud` library to your app target.
-5.  (Optional) Add the `LogOutLoudConsole` library to any SwiftUI target that should ship the in-app console.
+4.  Add the `Chronicle` library to your app target.
+5.  (Optional) Add the `ChronicleConsole` library to any SwiftUI target that should ship the in-app console.
 
 Alternatively, add it to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/aeastr/LogOutLoud.git", from: "1.0.0")
+    .package(url: "https://github.com/aeastr/Chronicle.git", from: "1.0.0")
 ]
 
 targets: [
     .target(
         name: "App",
         dependencies: [
-            .product(name: "LogOutLoud", package: "LogOutLoud"),
-            .product(name: "LogOutLoudConsole", package: "LogOutLoud") // optional console UI
+            .product(name: "Chronicle", package: "Chronicle"),
+            .product(name: "ChronicleConsole", package: "Chronicle"), // optional console UI
+            // .product(name: "ChronicleSwiftLogBridge", package: "Chronicle") // optional swift-log bridge
         ]
     )
 ]
@@ -213,7 +214,7 @@ public final class Logger {
 ### 1. Import
 
 ```swift
-import LogOutLoud
+import Chronicle
 ```
 
 ### 2. Define Your Tags
@@ -357,35 +358,54 @@ Use `.consoleStore` to fetch or tear down the store as needed.
 
 ---
 
-## SwiftLog Integration
+## SwiftLog Integration (Optional)
 
-Prefer the `swift-log` API surface? Bootstrap once and use `Logging.Logger` everywhere:
+> **Note:** This section is for **server-side Swift** developers or those integrating with existing `swift-log`-based codebases. Most Apple platform developers can skip this entirely—Chronicle uses Apple's native `os.Logger` by default and doesn't require `swift-log`.
+
+Chronicle provides an optional bridge for projects using the [`swift-log`](https://github.com/apple/swift-log) API. Add the `ChronicleSwiftLogBridge` library to route `swift-log` calls through Chronicle:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/aeastr/Chronicle.git", from: "1.0.0")
+]
+
+targets: [
+    .target(
+        name: "MyServerApp",
+        dependencies: [
+            .product(name: "ChronicleSwiftLogBridge", package: "Chronicle")
+        ]
+    )
+]
+```
+
+Then bootstrap Chronicle as your logging backend:
 
 ```swift
 import Logging
-import LogOutLoud
+import ChronicleSwiftLogBridge
 
-LoggingSystem.bootstrapLogOutLoud(defaultLogLevel: .info)
+LoggingSystem.bootstrapChronicle(defaultLogLevel: .info)
 
 let logger = Logger(label: "com.myapp.feature")
 logger.notice("Task queued", metadata: ["id": .string(task.id)])
 ```
 
-Under the hood LogOutLoud bridges the message, metadata, and level mappings back to Unified Logging.
+Under the hood, the bridge translates `swift-log` calls into Chronicle's API, which then uses Apple's Unified Logging system.
 
 ---
 
 ## In-App Log Console
 
-Need an on-device console for QA or support builds? LogOutLoud can mirror every emitted entry into a live buffer that powers a SwiftUI view.
+Need an on-device console for QA or support builds? Chronicle can mirror every emitted entry into a live buffer that powers a SwiftUI view.
 
 ### Enable the console
 
-Opt-in so there is zero overhead when you do not need UI logging (make sure the target imports `LogOutLoudConsole`):
+Opt-in so there is zero overhead when you do not need UI logging (make sure the target imports `ChronicleConsole`):
 
 ```swift
 // Typically in your App or setup code
-import LogOutLoudConsole
+import ChronicleConsole
 
 let consoleStore = Logger.shared.enableConsole(maxEntries: 1_000)
 ```
@@ -429,14 +449,14 @@ Prefer to build your own UI? Inject the `LogConsoleStore` manually and read its 
 
 ## Examples
 
-- `Sources/LogOutLoudExamples/SingleLoggerExample.swift`: Minimal SwiftUI list wired to `Logger.shared`, demonstrating how to present the in-app console for a single instance.
-- `Sources/LogOutLoudExamples/MultiLoggerExample.swift`: Shows two named loggers plus the shared logger feeding the same `LogConsoleStore`, so the console view aggregates multiple sources.
+- `Sources/ChronicleExamples/SingleLoggerExample.swift`: Minimal SwiftUI list wired to `Logger.shared`, demonstrating how to present the in-app console for a single instance.
+- `Sources/ChronicleExamples/MultiLoggerExample.swift`: Shows two named loggers plus the shared logger feeding the same `LogConsoleStore`, so the console view aggregates multiple sources.
 
-The `LogOutLoudExamples` library links both `LogOutLoud` and `LogOutLoudConsole`, so you can embed these previews in your own sample targets or UI prototyping apps.
+The `ChronicleExamples` library links both `Chronicle` and `ChronicleConsole`, so you can embed these previews in your own sample targets or UI prototyping apps.
 
 ---
 
-## Why LogOutLoud?
+## Why Chronicle?
 
 - **Less boilerplate** than raw `os_log` calls  
 - **Centralised configuration** for filtering and formatting  

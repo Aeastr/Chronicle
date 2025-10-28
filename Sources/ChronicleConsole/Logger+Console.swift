@@ -1,5 +1,5 @@
 import Foundation
-import LogOutLoud
+import Chronicle
 
 @MainActor
 private enum LoggerConsoleRegistry {
