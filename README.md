@@ -1,33 +1,17 @@
 <div align="center">
   <img width="200" height="200" src="/assets/icon.png" alt="Chronicle Logo">
   <h1><b>Chronicle</b></h1>
-  <p>
-   advanced logging wrapper for Apple's unified logging with async, structured metadata, runtime details and more
-    <br>
-    <i>Core logging supports iOS 13 / macOS 10.15 / tvOS 13 / watchOS 6+, SwiftUI console targets iOS 16 / macOS 13 / tvOS 16+ / watchOS 9+</i>
-  </p>
+  <p>Advanced logging wrapper for Apple's unified logging with async, structured metadata, runtime details and more</p>
 </div>
 
-<div align="center">
-  <a href="https://swift.org">
-    <img src="https://img.shields.io/badge/Swift-6.0%2B-orange.svg" alt="Swift Version">
-  </a>
-  <a href="https://developer.apple.com/ios/">
-    <img src="https://img.shields.io/badge/iOS-13%2B-blue.svg" alt="iOS 13+">
-  </a>
-  <a href="https://developer.apple.com/macos/">
-    <img src="https://img.shields.io/badge/macOS-10.15%2B-lightgrey.svg" alt="macOS 10.15+">
-  </a>
-  <a href="https://developer.apple.com/tvos/">
-    <img src="https://img.shields.io/badge/tvOS-13%2B-lightgrey.svg" alt="tvOS 13+">
-  </a>
-  <a href="https://developer.apple.com/watchos/">
-    <img src="https://img.shields.io/badge/watchOS-6%2B-lightgrey.svg" alt="watchOS 6+">
-  </a>
-  <a href="LICENSE">
-    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT">
-  </a>
-</div>
+<p align="center">
+  <a href="https://developer.apple.com/ios/"><img src="https://img.shields.io/badge/iOS-13%2B-blue.svg" alt="iOS 13+"></a>
+  <a href="https://developer.apple.com/macos/"><img src="https://img.shields.io/badge/macOS-10.15%2B-lightgrey.svg" alt="macOS 10.15+"></a>
+  <a href="https://developer.apple.com/tvos/"><img src="https://img.shields.io/badge/tvOS-13%2B-lightgrey.svg" alt="tvOS 13+"></a>
+  <a href="https://developer.apple.com/watchos/"><img src="https://img.shields.io/badge/watchOS-6%2B-lightgrey.svg" alt="watchOS 6+"></a>
+  <a href="https://swift.org/"><img src="https://img.shields.io/badge/Swift-6.0-orange.svg" alt="Swift 6.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT"></a>
+</p>
 
 
 ## Features
